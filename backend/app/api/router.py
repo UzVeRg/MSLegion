@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.database import check_database
+from app.modules.users.router import router as users_router
 
 api_router = APIRouter()
+api_router.include_router(users_router, prefix="/api/v1")
 
 
 @api_router.get(
