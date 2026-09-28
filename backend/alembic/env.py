@@ -7,6 +7,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
+from app.modules.integrations.models import IntegrationEvent
 from app.modules.users.models import User
 
 config = context.config
@@ -17,6 +18,9 @@ if config.config_file_name is not None:
 
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 target_metadata = User.metadata
+
+if IntegrationEvent.metadata is not target_metadata:
+    raise RuntimeError("integration and user models must share metadata")
 
 
 def run_migrations_offline() -> None:

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User
@@ -48,3 +48,9 @@ async def list_users(
     )
     result = await session.execute(statement)
     return list(result.scalars().all())
+
+
+async def count_users(session: AsyncSession) -> int:
+    statement = select(func.count()).select_from(User)
+    result = await session.execute(statement)
+    return int(result.scalar_one())

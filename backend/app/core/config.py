@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5432/mslegion"
     )
     admin_api_key: str = "change-me"
+    callback_api_key: str = "change-me-callback"
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
