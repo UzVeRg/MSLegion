@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     admin_api_key: str = "change-me"
     callback_api_key: str = "change-me-callback"
 
+    test_database_url: str = (
+        "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5434/mslegion_test"
+    )
+    run_integration_tests: bool = False
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",

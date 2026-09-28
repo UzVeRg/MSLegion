@@ -1,9 +1,10 @@
 import secrets
 from typing import Annotated
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header
 
 from app.core.config import get_settings
+from app.core.exceptions import AuthenticationError
 
 settings = get_settings()
 
@@ -15,10 +16,7 @@ async def require_admin_key(
         x_admin_key,
         settings.admin_api_key,
     ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid admin api key",
-        )
+        raise AuthenticationError("invalid admin api key")
 
 
 async def require_callback_key(
@@ -28,7 +26,4 @@ async def require_callback_key(
         x_callback_key,
         settings.callback_api_key,
     ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid callback api key",
-        )
+        raise AuthenticationError("invalid callback api key")

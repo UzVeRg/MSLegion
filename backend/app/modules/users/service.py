@@ -3,17 +3,13 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import (
+    UserNotFoundError,
+    UserTelegramIdConflictError,
+)
 from app.modules.users import repository
 from app.modules.users.models import User
 from app.modules.users.schemas import UserCreate
-
-
-class UserNotFoundError(Exception):
-    pass
-
-
-class UserTelegramIdConflictError(Exception):
-    pass
 
 
 async def create_user(

@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.database import close_database
+from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
+from app.core.middleware import request_context_middleware
 
 settings = get_settings()
 configure_logging()
@@ -24,4 +26,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+install_exception_handlers(app)
+app.middleware("http")(request_context_middleware)
 app.include_router(api_router)

@@ -10,6 +10,7 @@ def test_health_returns_200() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert response.headers["X-Request-ID"]
 
 
 def test_ready_returns_200_when_database_is_available(monkeypatch) -> None:
@@ -35,4 +36,7 @@ def test_ready_returns_503_when_database_is_unavailable(monkeypatch) -> None:
         response = client.get("/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "database is unavailable"}
+    body = response.json()
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["message"] == "database is unavailable"
+    assert body["error"]["request_id"] == response.headers["X-Request-ID"]

@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -22,13 +22,7 @@ async def create_user(
     payload: UserCreate,
     session: SessionDependency,
 ) -> UserRead:
-    try:
-        return await user_service.create_user(session, payload)
-    except user_service.UserTelegramIdConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="user with this telegram_id already exists",
-        ) from exc
+    return await user_service.create_user(session, payload)
 
 
 @router.get(
@@ -55,10 +49,4 @@ async def get_user(
     user_id: uuid.UUID,
     session: SessionDependency,
 ) -> UserRead:
-    try:
-        return await user_service.get_user(session, user_id)
-    except user_service.UserNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="user not found",
-        ) from exc
+    return await user_service.get_user(session, user_id)
