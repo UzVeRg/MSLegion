@@ -57,3 +57,41 @@ Query parameters:
 
 Успех: `200 OK`.
 Пользователь не найден: `404 Not Found`.
+
+## Callbacks
+
+### `POST /api/v1/callbacks/events`
+
+Требует заголовок `X-Callback-Key`.
+
+Пример тела:
+
+```json
+{
+  "source": "manual-test",
+  "event_id": "event-001",
+  "event_type": "ping",
+  "payload": {
+    "value": 1
+  }
+}
+```
+
+Успех: `200 OK`.
+
+Повторная отправка того же сочетания `source` и `event_id` также возвращает
+`200 OK`, но поле `duplicate` становится `true` и новая запись не создаётся.
+
+## Admin
+
+Административные endpoints требуют заголовок `X-Admin-Key`.
+
+### `GET /api/v1/admin/status`
+
+Возвращает состояние базы данных и количество основных записей.
+
+### `GET /api/v1/admin/callbacks`
+
+Возвращает историю входящих callback-событий.
+
+Поддерживает `offset`, `limit`, `source` и `event_type`.

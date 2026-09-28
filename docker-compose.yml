@@ -20,5 +20,25 @@ services:
       retries: 10
       start_period: 5s
 
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: mslegion-postgres-test
+    environment:
+      POSTGRES_DB: mslegion_test
+      POSTGRES_USER: ${POSTGRES_USER:-mslegion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mslegion}
+    ports:
+      - "127.0.0.1:5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-mslegion} -d mslegion_test
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
 volumes:
   mslegion_postgres_data:
