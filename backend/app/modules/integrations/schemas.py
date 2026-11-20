@@ -11,9 +11,9 @@ from app.core.validation import DatabaseText
 
 def validate_jsonb(value: JsonValue) -> None:
     if isinstance(value, str) and re.search(r"[\x00\ud800-\udfff]", value):
-        raise ValueError("JSON strings must contain valid Unicode without NUL")
+        raise ValueError("Строки JSON должны содержать допустимые символы Unicode без NUL")
     if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("JSON numbers must be finite")
+        raise ValueError("Числа JSON должны быть конечными")
     if isinstance(value, dict):
         for key, item in value.items():
             validate_jsonb(key)
@@ -40,7 +40,9 @@ class CallbackEventCreate(BaseModel):
     def normalize_identifier(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
-            raise ValueError("value must not be blank")
+            raise ValueError(
+                "Значение не должно быть пустым или состоять только из пробельных символов"
+            )
         return normalized
 
 

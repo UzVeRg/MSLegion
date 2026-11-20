@@ -29,7 +29,7 @@ def error_responses(*codes: int) -> dict[int | str, dict[str, Any]]:
 class AppError(Exception):
     status_code = 500
     code = "application_error"
-    default_message = "application error"
+    default_message = "Ошибка приложения"
 
     def __init__(self, message: str | None = None) -> None:
         self.message = message or self.default_message
@@ -39,7 +39,7 @@ class AppError(Exception):
 class AuthenticationError(AppError):
     status_code = 401
     code = "unauthorized"
-    default_message = "invalid api key"
+    default_message = "Недействительный ключ API"
 
 
 def get_request_id(request: Request) -> str:
@@ -81,7 +81,7 @@ async def http_error_handler(
     request: Request,
     exc: StarletteHTTPException,
 ) -> JSONResponse:
-    message = exc.detail if isinstance(exc.detail, str) else "request failed"
+    message = exc.detail if isinstance(exc.detail, str) else "Не удалось выполнить запрос"
     details = None if isinstance(exc.detail, str) else exc.detail
 
     return build_error_response(
@@ -101,7 +101,7 @@ async def validation_error_handler(
     return build_error_response(
         status_code=422,
         code="validation_error",
-        message="request validation failed",
+        message="Запрос не прошёл проверку",
         request_id=get_request_id(request),
         details=[
             {key: error[key] for key in ("type", "loc", "msg")}
@@ -115,13 +115,13 @@ async def unhandled_error_handler(
     exc: Exception,
 ) -> JSONResponse:
     logger.error(
-        "unhandled_exception",
+        "Необработанное исключение",
         exc_info=(type(exc), exc, exc.__traceback__),
     )
     return build_error_response(
         status_code=500,
         code="internal_error",
-        message="internal server error",
+        message="Внутренняя ошибка сервера",
         request_id=get_request_id(request),
     )
 

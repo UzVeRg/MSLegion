@@ -24,11 +24,11 @@ async def require_admin_key(
     x_admin_key: Annotated[str | None, Security(admin_key_header)],
 ) -> None:
     if not key_matches(x_admin_key, settings.admin_api_key):
-        raise AuthenticationError("invalid admin api key")
+        raise AuthenticationError("Недействительный ключ API для администрирования")
 
 
 async def require_callback_key(
     x_callback_key: Annotated[str | None, Security(callback_key_header)],
 ) -> None:
     if not key_matches(x_callback_key, settings.callback_api_key):
-        raise AuthenticationError("invalid callback api key")
+        raise AuthenticationError("Недействительный ключ API для приёма событий")

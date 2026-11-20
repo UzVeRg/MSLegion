@@ -15,7 +15,9 @@ class UserCreate(BaseModel):
     def normalize_display_name(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
-            raise ValueError("display_name must not be blank")
+            raise ValueError(
+                "Поле display_name не должно быть пустым или состоять только из пробельных символов"
+            )
         return normalized
 
 

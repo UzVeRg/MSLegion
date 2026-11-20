@@ -12,9 +12,9 @@ async def test_lifespan_preserves_host_logging_and_closes_database_on_error(monk
     root = logging.getLogger()
     original_handlers = root.handlers.copy()
     original_level = root.level
-    with pytest.raises(RuntimeError, match="shutdown"):
+    with pytest.raises(RuntimeError, match="Ошибка при завершении работы"):
         async with main.app.router.lifespan_context(main.app):
             assert root.handlers == original_handlers
             assert root.level == original_level
-            raise RuntimeError("shutdown")
+            raise RuntimeError("Ошибка при завершении работы")
     close.assert_awaited_once()

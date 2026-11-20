@@ -22,7 +22,7 @@ api_router.include_router(integrations_router, prefix="/api/v1")
 @api_router.get(
     "/health",
     tags=["system"],
-    summary="Process health check",
+    summary="Проверка состояния процесса",
 )
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -31,7 +31,7 @@ async def health() -> dict[str, str]:
 @api_router.get(
     "/ready",
     tags=["system"],
-    summary="Application readiness check",
+    summary="Проверка готовности приложения",
     responses=error_responses(503),
 )
 async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str, str]:
@@ -41,7 +41,7 @@ async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> d
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="database is unavailable",
+            detail="База данных недоступна",
         ) from exc
 
     return {

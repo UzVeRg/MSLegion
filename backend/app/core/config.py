@@ -41,13 +41,15 @@ class Settings(BaseSettings):
         if not value or value.strip() in {"", "change-me", "change-me-callback"}:
             return None
         if not value.isascii() or not value.isprintable() or value.strip() != value:
-            raise ValueError("API keys must contain printable ASCII without surrounding spaces")
+            raise ValueError(
+                "Ключи API должны содержать печатные символы ASCII без пробелов по краям"
+            )
         return value
 
     @model_validator(mode="after")
     def ensure_distinct_keys(self) -> Self:
         if self.admin_api_key and self.admin_api_key == self.callback_api_key:
-            raise ValueError("admin and callback API keys must differ")
+            raise ValueError("Ключи API для администрирования и приёма событий должны различаться")
         return self
 
 

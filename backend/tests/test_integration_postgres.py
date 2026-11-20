@@ -29,7 +29,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not settings.run_integration_tests,
-        reason="integration tests are disabled",
+        reason="Интеграционные тесты отключены",
     ),
 ]
 
@@ -43,14 +43,14 @@ async def isolated_schema() -> AsyncIterator[AsyncEngine]:
         working.port or 5432,
         working.database,
     ):
-        raise ValueError("TEST_DATABASE_URL must point to a dedicated database")
+        raise ValueError("TEST_DATABASE_URL должен указывать на отдельную тестовую базу данных")
 
     schema = "mslegion_test_" + uuid4().hex
     engine = create_async_engine(url, connect_args={"options": f"-csearch_path={schema}"})
     try:
         async with engine.begin() as connection:
             if await connection.scalar(text("SELECT current_database()")) != url.database:
-                raise RuntimeError("connected to an unexpected database")
+                raise RuntimeError("Подключение установлено не к той базе данных")
             await connection.execute(CreateSchema(schema))
         try:
             yield engine

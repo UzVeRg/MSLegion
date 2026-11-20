@@ -7,8 +7,10 @@ from app.core.config import get_settings
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the MSLegion API")
-    parser.add_argument("--reload", action="store_true", help="reload after source changes")
+    parser = argparse.ArgumentParser(description="Запуск API MSLegion")
+    parser.add_argument(
+        "--reload", action="store_true", help="перезапускать сервер при изменении исходников"
+    )
     args = parser.parse_args()
     settings = get_settings()
     uvicorn.run(

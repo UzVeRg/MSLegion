@@ -35,5 +35,5 @@ async def test_ready_returns_503_when_database_is_unavailable(monkeypatch, clien
     assert response.status_code == 503
     body = response.json()
     assert body["error"]["code"] == "http_error"
-    assert body["error"]["message"] == "database is unavailable"
+    assert body["error"]["message"] == "База данных недоступна"
     assert body["error"]["request_id"] == response.headers["X-Request-ID"]

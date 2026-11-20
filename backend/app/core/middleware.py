@@ -35,13 +35,13 @@ async def request_context_middleware(
             response = await call_next(request)
         except Exception as exc:
             logger.error(
-                "unhandled_exception",
+                "Необработанное исключение",
                 exc_info=(type(exc), exc, exc.__traceback__),
             )
             response = build_error_response(
                 status_code=500,
                 code="internal_error",
-                message="internal server error",
+                message="Внутренняя ошибка сервера",
                 request_id=request_id,
             )
 
@@ -51,7 +51,7 @@ async def request_context_middleware(
         )
         response.headers["X-Request-ID"] = request_id
         logger.info(
-            "request_complete",
+            "Обработка запроса завершена",
             extra={
                 "method": request.method,
                 "path": request.url.path,
