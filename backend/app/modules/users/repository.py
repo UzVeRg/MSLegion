@@ -8,13 +8,27 @@ from app.modules.users.models import User
 from app.modules.users.schemas import UserCreate
 
 
-async def insert_user(session: AsyncSession, payload: UserCreate) -> User | None:
+async def insert_user(
+    session: AsyncSession,
+    payload: UserCreate,
+    *,
+    telegram_verified: bool = False,
+) -> User | None:
     statement = (
         insert(User)
-        .values(telegram_id=payload.telegram_id, display_name=payload.display_name)
+        .values(
+            telegram_id=payload.telegram_id,
+            display_name=payload.display_name,
+            telegram_verified=telegram_verified,
+        )
         .on_conflict_do_nothing(index_elements=[User.telegram_id])
         .returning(User)
     )
+    return (await session.scalars(statement)).one_or_none()
+
+
+async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
+    statement = select(User).where(User.telegram_id == telegram_id)
     return (await session.scalars(statement)).one_or_none()
 
 

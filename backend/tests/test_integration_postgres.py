@@ -1,7 +1,10 @@
 import asyncio
+import hmac
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 from uuid import uuid4
 
 import pytest
@@ -22,6 +25,9 @@ import app.core.security as security_module
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.main import app
+from app.modules.auth.service import resolve_telegram_user_id
+from app.modules.auth.telegram import InvalidTelegramInitData
+from app.modules.users.exceptions import UserTelegramUnconfirmedError
 
 settings = get_settings()
 
@@ -182,3 +188,84 @@ def test_http_flow_with_real_postgres(
         run(),
         loop_factory=asyncio.SelectorEventLoop,
     )
+
+
+def test_telegram_identity_binding_with_real_postgres(monkeypatch) -> None:
+    legacy_id = uuid4()
+    bot_token = "123456:integration-test"
+    now = 1_700_000_000
+
+    def init_data(telegram_id: int) -> str:
+        user = json.dumps({"id": telegram_id, "first_name": "Анна"}, ensure_ascii=False)
+        secret = hmac.digest(b"WebAppData", bot_token.encode(), "sha256")
+        signature = hmac.digest(secret, f"auth_date={now}\nuser={user}".encode(), "sha256")
+        return urlencode({"user": user, "auth_date": now, "hash": signature.hex()})
+
+    async def run() -> None:
+        async with isolated_schema() as engine:
+            async with engine.begin() as connection:
+                await connection.run_sync(
+                    lambda conn: command.upgrade(migration_config(conn), "20260928_0002")
+                )
+                await connection.execute(
+                    text(
+                        "INSERT INTO users (id, telegram_id, display_name) "
+                        "VALUES (:id, 10, :name)"
+                    ),
+                    {"id": legacy_id, "name": "Прежняя запись"},
+                )
+                await connection.run_sync(migrate_and_check)
+
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+
+            async def login(data: str):
+                async with factory() as session:
+                    return await resolve_telegram_user_id(
+                        session, data, bot_token=bot_token, now=now
+                    )
+
+            with pytest.raises(InvalidTelegramInitData):
+                await login(init_data(20).replace("1700000000", "1700000001"))
+            with pytest.raises(UserTelegramUnconfirmedError):
+                await login(init_data(10))
+
+            first, concurrent = await asyncio.gather(login(init_data(20)), login(init_data(20)))
+            assert first == concurrent == await login(init_data(20))
+
+            async def override_session() -> AsyncIterator[AsyncSession]:
+                async with factory() as session:
+                    yield session
+
+            monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
+            monkeypatch.setattr(security_module.settings, "admin_api_key", "integration-admin")
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                path = f"/api/v1/users/{legacy_id}/telegram/confirmation"
+                headers = {"X-Admin-Key": "integration-admin"}
+                assert (await client.put(path, json={"telegram_id": 10})).status_code == 401
+                mismatch = await client.put(path, json={"telegram_id": 11}, headers=headers)
+                assert mismatch.status_code == 409
+                with pytest.raises(UserTelegramUnconfirmedError):
+                    await login(init_data(10))
+                for _ in range(2):
+                    confirmed = await client.put(path, json={"telegram_id": 10}, headers=headers)
+                    assert confirmed.status_code == 204
+                assert await login(init_data(10)) == legacy_id
+
+                manual = await client.post(
+                    "/api/v1/users",
+                    headers=headers,
+                    json={"telegram_id": 30, "display_name": "Ручная запись"},
+                )
+                assert manual.status_code == 201
+                with pytest.raises(UserTelegramUnconfirmedError):
+                    await login(init_data(30))
+
+            async with factory() as session:
+                rows = await session.execute(
+                    text("SELECT telegram_id, display_name FROM users ORDER BY telegram_id")
+                )
+                assert rows.all() == [(10, "Прежняя запись"), (20, "Анна"), (30, "Ручная запись")]
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)

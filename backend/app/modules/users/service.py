@@ -6,6 +6,7 @@ from app.modules.users import repository
 from app.modules.users.exceptions import (
     UserNotFoundError,
     UserTelegramIdConflictError,
+    UserTelegramIdMismatchError,
 )
 from app.modules.users.models import User
 from app.modules.users.schemas import UserCreate
@@ -30,6 +31,16 @@ async def get_user(
     if user is None:
         raise UserNotFoundError
     return user
+
+
+async def confirm_telegram_binding(
+    session: AsyncSession, user_id: uuid.UUID, telegram_id: int
+) -> None:
+    async with session.begin():
+        user = await get_user(session, user_id)
+        if user.telegram_id != telegram_id:
+            raise UserTelegramIdMismatchError
+        user.telegram_verified = True
 
 
 async def list_users(

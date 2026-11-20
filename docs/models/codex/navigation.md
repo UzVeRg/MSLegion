@@ -93,3 +93,10 @@
 - Операция — добавление
 - Текст пункта — проверка подписи и времени Telegram initData находится в `backend/app/modules/auth/telegram.py`, тесты — в `backend/tests/test_telegram_init_data.py`.
 - Источник — `backend/app/modules/auth/telegram.py` и `backend/tests/test_telegram_init_data.py`.
+
+
+## 2026-11-20 — D011 — NAV-11
+
+- Операция — замена
+- Текст пункта — проверка подписи и времени Telegram initData находится в `backend/app/modules/auth/telegram.py`, привязка личности к UUID — в `backend/app/modules/auth/service.py`. Миграция `20261120_0003` добавляет признак подтверждения к users. Административный маршрут подтверждения находится в `backend/app/modules/users/router.py`. Тесты проверки подписи и сценария PostgreSQL находятся в `backend/tests/test_telegram_init_data.py` и `backend/tests/test_integration_postgres.py`.
+- Источник — указанные исходники и `docs/team/reference/api.md`.

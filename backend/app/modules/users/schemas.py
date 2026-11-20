@@ -21,6 +21,10 @@ class UserCreate(BaseModel):
         return normalized
 
 
+class UserTelegramConfirmation(BaseModel):
+    telegram_id: int = Field(gt=0, le=MAX_BIGINT)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

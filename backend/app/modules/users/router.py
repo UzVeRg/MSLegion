@@ -9,7 +9,7 @@ from app.core.exceptions import error_responses
 from app.core.security import require_admin_key
 from app.core.validation import MAX_BIGINT
 from app.modules.users import service as user_service
-from app.modules.users.schemas import UserCreate, UserRead
+from app.modules.users.schemas import UserCreate, UserRead, UserTelegramConfirmation
 
 router = APIRouter(
     prefix="/users",
@@ -60,3 +60,17 @@ async def get_user(
     session: SessionDependency,
 ) -> UserRead:
     return await user_service.get_user(session, user_id)
+
+
+@router.put(
+    "/{user_id}/telegram/confirmation",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Подтвердить привязку пользователя к Telegram",
+    responses=error_responses(404, 409),
+)
+async def confirm_telegram_binding(
+    user_id: uuid.UUID,
+    payload: UserTelegramConfirmation,
+    session: SessionDependency,
+) -> None:
+    await user_service.confirm_telegram_binding(session, user_id, payload.telegram_id)
