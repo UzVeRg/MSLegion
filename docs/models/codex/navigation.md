@@ -86,3 +86,10 @@
 - Операция — добавление
 - Текст пункта — справка CLI находится в `backend/app/__main__.py`, описания проверок в OpenAPI — в `backend/app/api/router.py`, сообщения журнала приложения — в `backend/app/core/middleware.py` и `backend/app/core/exceptions.py`, а поля JSON-журнала — в `backend/app/core/logging.py`. Пояснения ошибок также находятся в настройках, проверке ключей и модулях users и integrations. Шаблон комментария новой миграции находится в `backend/alembic/script.py.mako`. Правило языка приведено в `AGENTS.md` и `docs/team/README.md`.
 - Источник — перечисленные исходники и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D010 — NAV-11
+
+- Операция — добавление
+- Текст пункта — проверка подписи и времени Telegram initData находится в `backend/app/modules/auth/telegram.py`, тесты — в `backend/tests/test_telegram_init_data.py`.
+- Источник — `backend/app/modules/auth/telegram.py` и `backend/tests/test_telegram_init_data.py`.
