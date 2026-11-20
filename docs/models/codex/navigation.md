@@ -100,3 +100,17 @@
 - Операция — замена
 - Текст пункта — проверка подписи и времени Telegram initData находится в `backend/app/modules/auth/telegram.py`, привязка личности к UUID — в `backend/app/modules/auth/service.py`. Миграция `20261120_0003` добавляет признак подтверждения к users. Административный маршрут подтверждения находится в `backend/app/modules/users/router.py`. Тесты проверки подписи и сценария PostgreSQL находятся в `backend/tests/test_telegram_init_data.py` и `backend/tests/test_integration_postgres.py`.
 - Источник — указанные исходники и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D012 — NAV-12
+
+- Операция — добавление
+- Текст пункта — HTTP-вход Telegram, собственный профиль и выход находятся в `backend/app/modules/auth/router.py`. Выдача токена и транзакции — в service.py, проверка действующей сессии и отзыв — в repository.py, модель — в models.py того же модуля. Таблицу user_sessions добавляет миграция `20261120_0004`, секрет TELEGRAM_BOT_TOKEN читается из настроек ядра. Контракт Bearer и режим без токена бота покрывает `backend/tests/test_auth.py`, полный сценарий — `backend/tests/test_integration_postgres.py`.
+- Источник — указанные исходники, `backend/app/core/config.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D013 — NAV-03
+
+- Операция — замена
+- Текст пункта — модели пользователей, событий и сессий находятся в models.py соответствующих модулей, миграции в `backend/alembic/versions/`. Compose предоставляет postgres и postgres-test. Из backend запускай быстрые тесты командой `..\.venv\Scripts\python.exe -m pytest -m "not integration"`. PostgreSQL-сценарии используют отдельные временные схемы, проверяют миграции и откат до base, привязку Telegram и жизненный цикл сессий, затем удаляют только свои схемы. Порядок запуска приведён в командном руководстве.
+- Источник — `backend/tests/test_integration_postgres.py`, `backend/alembic/env.py`, `docs/team/development/testing.md` и `docker-compose.yml`.

@@ -96,3 +96,31 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL и Alembic. CI, служебная защита и внутренний серверный сценарий привязки Telegram к UUID реализованы. Ближайший шаг P0.2 — подключить публичный вход, выдавать отзываемую серверную сессию в PostgreSQL и предоставить собственный профиль. Затем проверить границы прав в P0.3. Mini App на Vue 3 + TypeScript + Vite и бот ещё не реализованы. HTTPS-стенд предшествует проверке в Telegram, проверка восстановления БД — первому публичному выпуску. Платежи, экономика и выделение сервисов отложены.
 - Источник — `backend/pyproject.toml`, `.github/workflows/backend.yml`, `docs/team/architecture/overview.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D012 — PROJ-02
+
+- Операция — замена
+- Текст пункта — backend предоставляет публичные проверки /health и /ready. Создание, чтение и подтверждение привязки пользователей, административный статус и история событий требуют X-Admin-Key. Приём события требует отдельный X-Callback-Key. Незаданный или старый шаблонный ключ отключает соответствующий доступ. HTTP-вход через Telegram выдаёт сессию, по ней доступны собственный профиль и выход. Frontend и бот ещё предстоит реализовать.
+- Источник — `backend/app/core/security.py`, `backend/app/modules/auth/router.py`, другие маршрутизаторы в `backend/app/modules/` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D013 — PROJ-03
+
+- Операция — замена
+- Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL и Alembic. CI, служебная защита, привязка Telegram к UUID, отзываемые пользовательские сессии и собственный профиль реализованы. Ближайший шаг P0.3 — завершить проверку границ минимальных прав. Mini App на Vue 3 + TypeScript + Vite и бот ещё предстоит реализовать. HTTPS-стенд предшествует проверке в Telegram, проверка восстановления БД — первому публичному выпуску. Платежи, экономика и выделение сервисов отложены.
+- Источник — `backend/pyproject.toml`, `.github/workflows/backend.yml`, `docs/team/architecture/overview.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D014 — PROJ-04
+
+- Операция — замена
+- Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions и integration_events через сессию запроса. Административный статус получает счётчики пользователей и событий в переданной сессии и при ошибке базы возвращает unavailable с пустыми счётчиками.
+- Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D015 — PROJ-10
+
+- Операция — добавление
+- Текст пункта — P0.2 реализован. Маршрут POST /api/v1/auth/telegram проверяет initData и одной транзакцией связывает пользователя и создаёт сессию на 8 часов. PostgreSQL хранит SHA-256 случайного токена, UUID владельца, срок действия и время отзыва. GET /api/v1/auth/me возвращает профиль активного владельца действующей сессии, POST /api/v1/auth/logout отзывает только предъявленную сессию. Отсутствие TELEGRAM_BOT_TOKEN отключает выдачу сессий. Проверка в клиенте Telegram запланирована в P1.
+- Источник — `backend/app/modules/auth/`, миграция `20261120_0004`, `backend/tests/test_integration_postgres.py` и `docs/team/planning/roadmap.md`.

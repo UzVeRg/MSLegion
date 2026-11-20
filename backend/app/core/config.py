@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     )
     admin_api_key: str | None = Field(default=None, repr=False)
     callback_api_key: str | None = Field(default=None, repr=False)
+    telegram_bot_token: SecretStr | None = None
 
     test_database_url: str = (
         "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5434/mslegion_test"
@@ -44,6 +45,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Ключи API должны содержать печатные символы ASCII без пробелов по краям"
             )
+        return value
+
+    @field_validator("telegram_bot_token")
+    @classmethod
+    def validate_bot_token(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None or not (token := value.get_secret_value()):
+            return None
+        if not token.isascii() or not token.isprintable() or any(c.isspace() for c in token):
+            raise ValueError("Токен бота Telegram должен содержать символы ASCII без пробелов")
         return value
 
     @model_validator(mode="after")

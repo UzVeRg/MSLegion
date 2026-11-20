@@ -3,6 +3,8 @@ import hmac
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -11,6 +13,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.ext.asyncio import (
@@ -81,7 +84,9 @@ def migrate_and_check(connection: Connection) -> None:
 
 def downgrade_to_base(connection: Connection) -> None:
     command.downgrade(migration_config(connection), "base")
-    assert set(inspect(connection).get_table_names()).isdisjoint({"users", "integration_events"})
+    assert set(inspect(connection).get_table_names()).isdisjoint(
+        {"users", "integration_events", "user_sessions"}
+    )
 
 
 async def run_http_flow_with_real_postgres(monkeypatch, engine: AsyncEngine) -> None:
@@ -190,16 +195,20 @@ def test_http_flow_with_real_postgres(
     )
 
 
+def signed_telegram_data(telegram_id: int, *, bot_token: str, now: int) -> str:
+    user = json.dumps({"id": telegram_id, "first_name": "Анна"}, ensure_ascii=False)
+    secret = hmac.digest(b"WebAppData", bot_token.encode(), "sha256")
+    signature = hmac.digest(secret, f"auth_date={now}\nuser={user}".encode(), "sha256")
+    return urlencode({"user": user, "auth_date": now, "hash": signature.hex()})
+
+
 def test_telegram_identity_binding_with_real_postgres(monkeypatch) -> None:
     legacy_id = uuid4()
     bot_token = "123456:integration-test"
     now = 1_700_000_000
 
     def init_data(telegram_id: int) -> str:
-        user = json.dumps({"id": telegram_id, "first_name": "Анна"}, ensure_ascii=False)
-        secret = hmac.digest(b"WebAppData", bot_token.encode(), "sha256")
-        signature = hmac.digest(secret, f"auth_date={now}\nuser={user}".encode(), "sha256")
-        return urlencode({"user": user, "auth_date": now, "hash": signature.hex()})
+        return signed_telegram_data(telegram_id, bot_token=bot_token, now=now)
 
     async def run() -> None:
         async with isolated_schema() as engine:
@@ -267,5 +276,120 @@ def test_telegram_identity_binding_with_real_postgres(monkeypatch) -> None:
                     text("SELECT telegram_id, display_name FROM users ORDER BY telegram_id")
                 )
                 assert rows.all() == [(10, "Прежняя запись"), (20, "Анна"), (30, "Ручная запись")]
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_telegram_sessions_with_real_postgres(monkeypatch) -> None:
+    bot_token = "123456:session-test"
+
+    async def run() -> None:
+        async with isolated_schema() as engine:
+            async with engine.begin() as connection:
+                await connection.run_sync(migrate_and_check)
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+
+            async def override_session() -> AsyncIterator[AsyncSession]:
+                async with factory() as session:
+                    yield session
+
+            monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
+            monkeypatch.setitem(
+                app.dependency_overrides,
+                get_settings,
+                lambda: settings.model_copy(update={"telegram_bot_token": SecretStr(bot_token)}),
+            )
+            monkeypatch.setattr(security_module.settings, "admin_api_key", "integration-admin")
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                login_path = "/api/v1/auth/telegram"
+                profile_path = "/api/v1/auth/me"
+                logout_path = "/api/v1/auth/logout"
+
+                async def request_login(telegram_id: int, now: datetime):
+                    init_data = signed_telegram_data(
+                        telegram_id, bot_token=bot_token, now=int(now.timestamp())
+                    )
+                    return await client.post(login_path, json={"init_data": init_data})
+
+                async def login(telegram_id: int) -> str:
+                    now = datetime.now(UTC)
+                    response = await request_login(telegram_id, now)
+                    assert response.status_code == 200
+                    assert response.headers["Cache-Control"] == "no-store"
+                    body = response.json()
+                    assert body["token_type"] == "bearer"
+                    expires_at = datetime.fromisoformat(body["expires_at"])
+                    assert now + timedelta(hours=8) <= expires_at
+                    assert expires_at <= datetime.now(UTC) + timedelta(hours=8)
+                    return body["access_token"]
+
+                def bearer(token: str) -> dict[str, str]:
+                    return {"Authorization": f"Bearer {token}"}
+
+                invalid = await client.post(login_path, json={"init_data": "auth_date=1"})
+                assert invalid.status_code == 401
+                first_token = await login(101)
+                second_token = await login(202)
+                third_token = await login(101)
+                assert len({first_token, second_token, third_token}) == 3
+
+                first = await client.get(profile_path, headers=bearer(first_token))
+                second = await client.get(profile_path, headers=bearer(second_token))
+                third = await client.get(profile_path, headers=bearer(third_token))
+                assert first.status_code == second.status_code == third.status_code == 200
+                assert first.headers["Cache-Control"] == "no-store"
+                assert first.json()["telegram_id"] == third.json()["telegram_id"] == 101
+                assert first.json()["id"] == third.json()["id"]
+                assert second.json()["telegram_id"] == 202
+                assert first.json()["id"] != second.json()["id"]
+                other_user = await client.get(
+                    f"/api/v1/users/{second.json()['id']}", headers=bearer(first_token)
+                )
+                assert other_user.status_code == 401
+
+                async with engine.begin() as connection:
+                    result = await connection.execute(text("SELECT token_hash FROM user_sessions"))
+                    assert {bytes(row[0]) for row in result} == {
+                        sha256(token.encode()).digest()
+                        for token in (first_token, second_token, third_token)
+                    }
+                    await connection.execute(
+                        text("UPDATE user_sessions SET expires_at = now() WHERE token_hash = :key"),
+                        {"key": sha256(third_token.encode()).digest()},
+                    )
+
+                expired = await client.get(profile_path, headers=bearer(third_token))
+                assert expired.status_code == 401
+                assert expired.headers["WWW-Authenticate"] == "Bearer"
+                logouts = await asyncio.gather(
+                    *(client.post(logout_path, headers=bearer(first_token)) for _ in range(2))
+                )
+                assert sorted(response.status_code for response in logouts) == [204, 401]
+                async with engine.connect() as connection:
+                    revoked_at = await connection.scalar(
+                        text("SELECT revoked_at FROM user_sessions WHERE token_hash = :key"),
+                        {"key": sha256(first_token.encode()).digest()},
+                    )
+                    assert revoked_at is not None
+                revoked_profile = await client.get(profile_path, headers=bearer(first_token))
+                assert revoked_profile.status_code == 401
+                other_profile = await client.get(profile_path, headers=bearer(second_token))
+                assert other_profile.status_code == 200
+                admin_profile = await client.get(
+                    profile_path, headers={"X-Admin-Key": "integration-admin"}
+                )
+                assert admin_profile.status_code == 401
+
+                async with engine.begin() as connection:
+                    await connection.execute(
+                        text("UPDATE users SET status = 'disabled' WHERE telegram_id = 202")
+                    )
+                blocked_profile = await client.get(profile_path, headers=bearer(second_token))
+                assert blocked_profile.status_code == 401
+                blocked_login = await request_login(202, datetime.now(UTC))
+                assert blocked_login.status_code == 403
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)

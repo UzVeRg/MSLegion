@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -30,6 +30,7 @@ class AppError(Exception):
     status_code = 500
     code = "application_error"
     default_message = "Ошибка приложения"
+    headers: ClassVar[dict[str, str] | None] = None
 
     def __init__(self, message: str | None = None) -> None:
         self.message = message or self.default_message
@@ -74,6 +75,7 @@ async def app_error_handler(
         code=exc.code,
         message=exc.message,
         request_id=get_request_id(request),
+        headers=exc.headers,
     )
 
 
