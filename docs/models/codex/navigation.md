@@ -30,3 +30,10 @@
 - Операция — добавление
 - Текст пункта — граница административного управления пользователями и настройки раздельных ключей проверяются в `backend/tests/test_access.py`. Схемы авторизации OpenAPI и проверка заголовков находятся в `backend/app/core/security.py`.
 - Источник — `backend/tests/test_access.py`, `backend/app/core/config.py`, `backend/app/core/security.py`.
+
+
+## 2026-11-20 — D002 — NAV-03
+
+- Операция — замена
+- Текст пункта — модели пользователей и событий находятся в models.py соответствующих модулей, миграции в `backend/alembic/versions/`. Compose предоставляет postgres и postgres-test. Из backend запускай быстрые тесты командой `..\.venv\Scripts\python.exe -m pytest -m "not integration"`. Интеграционный сценарий создаёт временную отдельную схему, применяет и сверяет миграции, проверяет HTTP API и откат до base, затем удаляет только свою схему. Порядок запуска приведён в командном руководстве.
+- Источник — `backend/tests/test_integration_postgres.py`, `backend/alembic/env.py`, `docs/team/development/testing.md` и `docker-compose.yml`.

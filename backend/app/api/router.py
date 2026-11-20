@@ -1,8 +1,15 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
 
-from app.core.database import check_database
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
 from app.modules.admin.router import router as admin_router
+from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.router import router as integrations_router
+from app.modules.users.models import User
 from app.modules.users.router import router as users_router
 
 api_router = APIRouter()
@@ -25,12 +32,15 @@ async def health() -> dict[str, str]:
     tags=["system"],
     summary="Application readiness check",
 )
-async def readiness() -> dict[str, str]:
-    if not await check_database():
+async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str, str]:
+    try:
+        for model in (User, IntegrationEvent):
+            await session.execute(select(model).limit(0))
+    except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="database is unavailable",
-        )
+        ) from exc
 
     return {
         "status": "ok",

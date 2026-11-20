@@ -13,7 +13,7 @@ from app.modules.users.models import User
 config = context.config
 settings = get_settings()
 
-if config.config_file_name is not None:
+if config.config_file_name is not None and "connection" not in config.attributes:
     fileConfig(config.config_file_name)
 
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
@@ -56,10 +56,11 @@ async def run_async_migrations() -> None:
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+    finally:
+        await connectable.dispose()
 
 
 def run_migrations_online() -> None:
@@ -71,5 +72,7 @@ def run_migrations_online() -> None:
 
 if context.is_offline_mode():
     run_migrations_offline()
+elif "connection" in config.attributes:
+    do_run_migrations(config.attributes["connection"])
 else:
     run_migrations_online()

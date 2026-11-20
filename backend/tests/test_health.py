@@ -1,6 +1,10 @@
-from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
 
-import app.api.router as router_module
+from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
 from app.main import app
 
 
@@ -14,10 +18,8 @@ def test_health_returns_200() -> None:
 
 
 def test_ready_returns_200_when_database_is_available(monkeypatch) -> None:
-    async def database_is_available() -> bool:
-        return True
-
-    monkeypatch.setattr(router_module, "check_database", database_is_available)
+    session = AsyncMock(spec=AsyncSession)
+    monkeypatch.setitem(app.dependency_overrides, get_session, lambda: session)
 
     with TestClient(app) as client:
         response = client.get("/ready")
@@ -27,10 +29,9 @@ def test_ready_returns_200_when_database_is_available(monkeypatch) -> None:
 
 
 def test_ready_returns_503_when_database_is_unavailable(monkeypatch) -> None:
-    async def database_is_unavailable() -> bool:
-        return False
-
-    monkeypatch.setattr(router_module, "check_database", database_is_unavailable)
+    session = AsyncMock(spec=AsyncSession)
+    session.execute.side_effect = SQLAlchemyError()
+    monkeypatch.setitem(app.dependency_overrides, get_session, lambda: session)
 
     with TestClient(app) as client:
         response = client.get("/ready")
