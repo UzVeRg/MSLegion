@@ -1,7 +1,6 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.config import Settings
@@ -17,10 +16,9 @@ from app.main import app
         ("POST", "/api/v1/users"),
     ],
 )
-def test_user_management_requires_admin(method, path, monkeypatch):
+async def test_user_management_requires_admin(method, path, monkeypatch, client):
     monkeypatch.setitem(app.dependency_overrides, get_session, lambda: None)
-    with TestClient(app) as client:
-        response = client.request(method, path, json={"display_name": "Test"})
+    response = await client.request(method, path, json={"display_name": "Test"})
     assert response.status_code == 401
 
 

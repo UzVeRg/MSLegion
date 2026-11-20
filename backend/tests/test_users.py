@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi.testclient import TestClient
 
 import app.modules.users.router as users_router_module
 from app.core.config import get_settings
@@ -21,10 +20,10 @@ class DummySession:
 
 
 @pytest.fixture
-def admin_client(monkeypatch):
+def admin_client(client, monkeypatch):
     monkeypatch.setattr(get_settings(), "admin_api_key", "admin-test")
-    with TestClient(app, headers={"X-Admin-Key": "admin-test"}) as client:
-        yield client
+    client.headers["X-Admin-Key"] = "admin-test"
+    return client
 
 
 async def override_session() -> AsyncIterator[DummySession]:
@@ -48,7 +47,7 @@ def build_user(
     )
 
 
-def test_create_user_returns_201(monkeypatch, admin_client) -> None:
+async def test_create_user_returns_201(monkeypatch, admin_client) -> None:
     created = build_user()
 
     async def fake_create_user(session, payload):
@@ -61,25 +60,22 @@ def test_create_user_returns_201(monkeypatch, admin_client) -> None:
         "create_user",
         fake_create_user,
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        response = admin_client.post(
-            "/api/v1/users",
-            json={
-                "telegram_id": 123456789,
-                "display_name": "  Test User  ",
-            },
-        )
-    finally:
-        app.dependency_overrides.clear()
+    response = await admin_client.post(
+        "/api/v1/users",
+        json={
+            "telegram_id": 123456789,
+            "display_name": "  Test User  ",
+        },
+    )
 
     assert response.status_code == 201
     assert response.json()["id"] == str(created.id)
     assert response.json()["display_name"] == "Test User"
 
 
-def test_create_user_returns_409_for_duplicate_telegram_id(monkeypatch, admin_client) -> None:
+async def test_create_user_returns_409_for_duplicate_telegram_id(monkeypatch, admin_client) -> None:
     async def fake_create_user(session, payload):
         raise UserTelegramIdConflictError
 
@@ -88,23 +84,20 @@ def test_create_user_returns_409_for_duplicate_telegram_id(monkeypatch, admin_cl
         "create_user",
         fake_create_user,
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        response = admin_client.post(
-            "/api/v1/users",
-            json={
-                "telegram_id": 123456789,
-                "display_name": "Duplicate",
-            },
-        )
-    finally:
-        app.dependency_overrides.clear()
+    response = await admin_client.post(
+        "/api/v1/users",
+        json={
+            "telegram_id": 123456789,
+            "display_name": "Duplicate",
+        },
+    )
 
     assert response.status_code == 409
 
 
-def test_get_user_returns_200(monkeypatch, admin_client) -> None:
+async def test_get_user_returns_200(monkeypatch, admin_client) -> None:
     user_id = uuid4()
     existing = build_user(user_id=user_id)
 
@@ -117,18 +110,15 @@ def test_get_user_returns_200(monkeypatch, admin_client) -> None:
         "get_user",
         fake_get_user,
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        response = admin_client.get(f"/api/v1/users/{user_id}")
-    finally:
-        app.dependency_overrides.clear()
+    response = await admin_client.get(f"/api/v1/users/{user_id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == str(user_id)
 
 
-def test_get_user_returns_404(monkeypatch, admin_client) -> None:
+async def test_get_user_returns_404(monkeypatch, admin_client) -> None:
     async def fake_get_user(session, requested_user_id):
         raise UserNotFoundError
 
@@ -137,17 +127,14 @@ def test_get_user_returns_404(monkeypatch, admin_client) -> None:
         "get_user",
         fake_get_user,
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        response = admin_client.get(f"/api/v1/users/{uuid4()}")
-    finally:
-        app.dependency_overrides.clear()
+    response = await admin_client.get(f"/api/v1/users/{uuid4()}")
 
     assert response.status_code == 404
 
 
-def test_list_users_returns_200(monkeypatch, admin_client) -> None:
+async def test_list_users_returns_200(monkeypatch, admin_client) -> None:
     users = [
         build_user(display_name="First"),
         build_user(telegram_id=None, display_name="Second"),
@@ -163,12 +150,9 @@ def test_list_users_returns_200(monkeypatch, admin_client) -> None:
         "list_users",
         fake_list_users,
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        response = admin_client.get("/api/v1/users")
-    finally:
-        app.dependency_overrides.clear()
+    response = await admin_client.get("/api/v1/users")
 
     assert response.status_code == 200
     assert len(response.json()) == 2

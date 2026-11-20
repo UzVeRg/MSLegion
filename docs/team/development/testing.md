@@ -39,14 +39,18 @@ Remove-Item Env:RUN_INTEGRATION_TESTS
 Интеграционный тест запускает асинхронный сценарий через
 `asyncio.SelectorEventLoop`, совместимый с асинхронным Psycopg на Windows.
 
-## Все тесты
+## Полный прогон и CI
 
-После успешной отдельной проверки PostgreSQL можно выполнить оба набора:
+Из каталога `backend` с запущенной тестовой БД выполните команды ниже. Ожидаемый результат — Ruff и весь набор pytest проходят, интеграционный сценарий включён.
 
 ```powershell
-..\.venv\Scripts\python.exe -m pytest -m "not integration"
-
+..\.venv\Scripts\python.exe -m ruff check .
 $env:RUN_INTEGRATION_TESTS="true"
-..\.venv\Scripts\python.exe -m pytest -m integration
-Remove-Item Env:RUN_INTEGRATION_TESTS
+try {
+    ..\.venv\Scripts\python.exe -m pytest -q
+} finally {
+    Remove-Item Env:RUN_INTEGRATION_TESTS
+}
 ```
+
+При push и pull request [GitHub Actions](../../../.github/workflows/backend.yml) повторяет эти проверки на Linux с отдельным сервисом PostgreSQL 17 для каждой версии Python 3.12, 3.13 и 3.14.

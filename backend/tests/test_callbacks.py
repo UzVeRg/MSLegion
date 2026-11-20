@@ -3,8 +3,6 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
-
 import app.core.security as security_module
 import app.modules.integrations.router as integrations_router_module
 from app.core.database import get_session
@@ -30,7 +28,7 @@ def build_event() -> SimpleNamespace:
     )
 
 
-def test_callback_returns_200(monkeypatch) -> None:
+async def test_callback_returns_200(monkeypatch, client) -> None:
     event = build_event()
 
     async def fake_receive_event(session, payload):
@@ -48,29 +46,25 @@ def test_callback_returns_200(monkeypatch) -> None:
         "callback_api_key",
         "callback-test",
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/callbacks/events",
-                headers={"X-Callback-Key": "callback-test"},
-                json={
-                    "source": "test",
-                    "event_id": "event-1",
-                    "event_type": "ping",
-                    "payload": {"value": 1},
-                },
-            )
-    finally:
-        app.dependency_overrides.clear()
+    response = await client.post(
+        "/api/v1/callbacks/events",
+        headers={"X-Callback-Key": "callback-test"},
+        json={
+            "source": "test",
+            "event_id": "event-1",
+            "event_type": "ping",
+            "payload": {"value": 1},
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["accepted"] is True
     assert response.json()["duplicate"] is False
 
 
-def test_duplicate_callback_returns_200(monkeypatch) -> None:
+async def test_duplicate_callback_returns_200(monkeypatch, client) -> None:
     event = build_event()
 
     async def fake_receive_event(session, payload):
@@ -86,50 +80,45 @@ def test_duplicate_callback_returns_200(monkeypatch) -> None:
         "callback_api_key",
         "callback-test",
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/callbacks/events",
-                headers={"X-Callback-Key": "callback-test"},
-                json={
-                    "source": "test",
-                    "event_id": "event-1",
-                    "event_type": "ping",
-                    "payload": {"value": 1},
-                },
-            )
-    finally:
-        app.dependency_overrides.clear()
+    response = await client.post(
+        "/api/v1/callbacks/events",
+        headers={"X-Callback-Key": "callback-test"},
+        json={
+            "source": "test",
+            "event_id": "event-1",
+            "event_type": "ping",
+            "payload": {"value": 1},
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["duplicate"] is True
 
 
-def test_callback_rejects_invalid_key(monkeypatch) -> None:
+async def test_callback_rejects_invalid_key(monkeypatch, client) -> None:
     monkeypatch.setattr(
         security_module.settings,
         "callback_api_key",
         "callback-test",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/v1/callbacks/events",
-            headers={"X-Callback-Key": "wrong"},
-            json={
-                "source": "test",
-                "event_id": "event-1",
-                "event_type": "ping",
-                "payload": {"value": 1},
-            },
-        )
+    response = await client.post(
+        "/api/v1/callbacks/events",
+        headers={"X-Callback-Key": "wrong"},
+        json={
+            "source": "test",
+            "event_id": "event-1",
+            "event_type": "ping",
+            "payload": {"value": 1},
+        },
+    )
 
     assert response.status_code == 401
 
 
-def test_admin_callback_history_returns_200(monkeypatch) -> None:
+async def test_admin_callback_history_returns_200(monkeypatch, client) -> None:
     events = [build_event()]
 
     async def fake_list_events(
@@ -154,16 +143,12 @@ def test_admin_callback_history_returns_200(monkeypatch) -> None:
         "admin_api_key",
         "admin-test",
     )
-    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
 
-    try:
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/admin/callbacks",
-                headers={"X-Admin-Key": "admin-test"},
-            )
-    finally:
-        app.dependency_overrides.clear()
+    response = await client.get(
+        "/api/v1/admin/callbacks",
+        headers={"X-Admin-Key": "admin-test"},
+    )
 
     assert response.status_code == 200
     assert len(response.json()) == 1

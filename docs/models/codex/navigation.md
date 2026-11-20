@@ -58,3 +58,10 @@
 - Операция — добавление
 - Текст пункта — из backend запускай `python -m app`, при разработке можно добавить --reload. Точка входа читает APP_HOST и APP_PORT, на Windows задаёт SelectorEventLoop для Psycopg. Сам объект ASGI остаётся в app.main:app.
 - Источник — `backend/app/__main__.py`, `docs/team/development/local-setup.md`.
+
+
+## 2026-11-20 — D006 — NAV-08
+
+- Операция — добавление
+- Текст пункта — CI backend определён в `.github/workflows/backend.yml`. На push и pull request запускаются Ruff и весь pytest с PostgreSQL 17 для всех поддерживаемых минорных версий Python. Фикстура асинхронного HTTP-клиента быстрых тестов находится в `backend/tests/conftest.py`.
+- Источник — `.github/workflows/backend.yml`, `backend/tests/conftest.py` и `docs/team/development/testing.md`.
