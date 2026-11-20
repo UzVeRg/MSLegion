@@ -72,3 +72,10 @@
 - Операция — добавление
 - Текст пункта — /openapi.json описывает схемы ключей и ответы с ошибками. ErrorEnvelope в ядре используется и при формировании ответа, и при генерации контракта FastAPI. Соответствие спецификации проверяет test_request_context.py.
 - Источник — `backend/app/core/exceptions.py`, маршрутизаторы модулей и `backend/tests/test_request_context.py`.
+
+
+## 2026-11-20 — D008 — NAV-01
+
+- Операция — замена
+- Текст пункта — объект FastAPI и его жизненный цикл находятся в `backend/app/main.py`, команда запуска — в `backend/app/__main__.py`. Общий маршрутизатор, /health и /ready — в `backend/app/api/router.py`. Настройки — `backend/app/core/config.py` и `.env.example`, ключи — security.py. База ORM — `backend/app/core/models.py`, движок и сессии — database.py, регистрация моделей для миграций — `backend/alembic/env.py`. Отдельный журнал приложения включается на время lifespan, освобождение пула выполняется при выходе. Общие ошибки и контекст запроса — exceptions.py и middleware.py ядра.
+- Источник — `backend/app/core/logging.py`, `backend/app/core/models.py`, `backend/app/main.py`, `backend/tests/test_lifespan.py` и `backend/tests/test_request_context.py`.

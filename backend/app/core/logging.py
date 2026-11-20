@@ -1,5 +1,7 @@
 import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
@@ -49,12 +51,19 @@ class JsonFormatter(logging.Formatter):
         )
 
 
-def configure_logging() -> None:
-    settings = get_settings()
+@contextmanager
+def application_logging() -> Iterator[None]:
+    logger = logging.getLogger("app")
+    level, propagate = logger.level, logger.propagate
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
-
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.addHandler(handler)
-    root_logger.setLevel(settings.log_level.upper())
+    logger.setLevel(get_settings().log_level.upper())
+    logger.propagate = False
+    logger.addHandler(handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+        logger.setLevel(level)
+        logger.propagate = propagate
