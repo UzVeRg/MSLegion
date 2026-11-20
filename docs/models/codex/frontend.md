@@ -14,3 +14,10 @@
 - Операция — добавление
 - Текст пункта — на HTTPS-стенде Caddy раздаёт frontend/dist и проксирует /api с того же адреса. Адрес стенда и настройки бота описаны в командном руководстве. Проверка публичного запуска в клиенте Telegram ещё впереди.
 - Источник — `deploy/staging/Caddyfile`, `compose.staging.yml` и `docs/team/development/staging.md`.
+
+
+## 2026-11-20 — D002 — FRONT-03
+
+- Операция — добавление
+- Текст пункта — профиль переключает настройку личных уведомлений через PUT /api/v1/auth/me/telegram-notifications. При включении поддерживаемый Telegram-клиент запрашивает разрешение на личные сообщения.
+- Источник — `frontend/src/App.vue`, `frontend/src/telegram.ts` и `frontend/src/App.test.ts`.

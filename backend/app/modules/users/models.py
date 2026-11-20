@@ -49,3 +49,8 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    telegram_notifications_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def telegram_notifications_enabled(self) -> bool:
+        return self.telegram_notifications_since is not None

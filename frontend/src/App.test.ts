@@ -7,6 +7,7 @@ const profile = {
   id: 'c43f518f-c3fd-45f0-8a90-b8bad20dbf65',
   telegram_id: 42,
   display_name: 'Анна Иванова',
+  telegram_notifications_enabled: false,
 }
 const cleanup: Array<() => void> = []
 
@@ -36,9 +37,13 @@ function mount() {
   return host
 }
 
-function openMiniApp() {
+function openMiniApp(requestWriteAccess?: (callback: (allowed: boolean) => void) => void) {
   const ready = vi.fn()
-  vi.stubGlobal('Telegram', { WebApp: { initData: 'auth_date=1&hash=signed', ready } })
+  vi.stubGlobal('Telegram', {
+    WebApp: {
+      initData: 'auth_date=1&hash=signed', ready, requestWriteAccess, isVersionAtLeast: () => true,
+    },
+  })
   return { host: mount(), ready }
 }
 
@@ -55,6 +60,31 @@ afterEach(() => {
 })
 
 describe('Telegram Mini App', () => {
+  it('просит разрешение Telegram перед включением уведомлений', async () => {
+    const permission = vi.fn((callback: (allowed: boolean) => void) => callback(true))
+    const request = vi.fn()
+      .mockResolvedValueOnce(loginResponse())
+      .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json({ enabled: true }))
+      .mockResolvedValueOnce(Response.json({ enabled: false }))
+    vi.stubGlobal('fetch', request)
+    const { host } = openMiniApp(permission)
+    await setImmediate()
+    const button = host.querySelector<HTMLButtonElement>('[data-notification-toggle]')!
+    button.click()
+    await setImmediate()
+    expect(permission).toHaveBeenCalledOnce()
+    expect(request).toHaveBeenLastCalledWith(
+      '/api/v1/auth/me/telegram-notifications',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ enabled: true }) }),
+    )
+    expect(button.textContent).toContain('Отключить уведомления')
+    button.click()
+    await setImmediate()
+    expect(permission).toHaveBeenCalledOnce()
+    expect(button.textContent).toContain('Включить уведомления')
+  })
+
   it('показывает подсказку вне Telegram без запроса к API', async () => {
     const request = vi.fn()
     vi.stubGlobal('fetch', request)

@@ -9,9 +9,13 @@ from app.core.database import get_session
 from app.core.exceptions import error_responses
 from app.modules.auth import service
 from app.modules.auth.exceptions import InvalidSessionError, TelegramLoginUnavailableError
-from app.modules.auth.schemas import SessionToken, TelegramLogin
+from app.modules.auth.schemas import (
+    OwnProfileRead,
+    SessionToken,
+    TelegramLogin,
+    TelegramNotificationPreference,
+)
 from app.modules.users.models import User
-from app.modules.users.schemas import UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"], responses=error_responses(401))
 session_bearer = HTTPBearer(scheme_name="UserSession", auto_error=False)
@@ -49,13 +53,27 @@ async def login_with_telegram(
     return result
 
 
-@router.get("/me", response_model=UserRead, summary="Получить собственный профиль")
+@router.get("/me", response_model=OwnProfileRead, summary="Получить собственный профиль")
 async def get_own_profile(
     response: Response, token_hash: TokenHash, session: SessionDependency
 ) -> User:
     user = await service.get_own_profile(session, token_hash)
     response.headers["Cache-Control"] = "no-store"
     return user
+
+
+@router.put(
+    "/me/telegram-notifications",
+    responses=error_responses(422),
+    summary="Настроить уведомления Telegram",
+)
+async def set_telegram_notifications(
+    payload: TelegramNotificationPreference,
+    token_hash: TokenHash,
+    session: SessionDependency,
+) -> TelegramNotificationPreference:
+    await service.set_telegram_notification_preference(session, token_hash, payload.enabled)
+    return payload
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Отозвать текущую сессию")

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ApiError, exchangeTelegramData, fetchProfile, revokeSession, type Profile } from './api'
-import { getTelegramWebApp } from './telegram'
+import {
+  ApiError, exchangeTelegramData, fetchProfile, revokeSession, setTelegramNotifications, type Profile,
+} from './api'
+import { getTelegramWebApp, requestTelegramWriteAccess } from './telegram'
 
 type Phase = 'outside' | 'loading' | 'profile' | 'expired' | 'reopen' | 'error' | 'signed-out'
 
@@ -9,6 +11,7 @@ const phase = ref<Phase>('outside')
 const profile = ref<Profile | null>(null)
 const errorMessage = ref('')
 const signingOut = ref(false)
+const savingNotifications = ref(false)
 const abort = new AbortController()
 let session: { token: string; expiresAt: number } | null = null
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
@@ -35,6 +38,7 @@ function clearSession() {
   session = null
   profile.value = null
   signingOut.value = false
+  savingNotifications.value = false
 }
 
 function expireSession() {
@@ -110,6 +114,31 @@ async function signOut() {
   phase.value = 'signed-out'
 }
 
+async function toggleNotifications() {
+  if (!session || !profile.value || savingNotifications.value) return
+  const current = session
+  const enabled = !profile.value.telegram_notifications_enabled
+  savingNotifications.value = true
+  errorMessage.value = ''
+  try {
+    if (enabled && !await requestTelegramWriteAccess()) {
+      if (session === current) errorMessage.value = 'Разрешите боту отправлять личные сообщения.'
+      return
+    }
+    if (session !== current || abort.signal.aborted) return
+    const saved = await setTelegramNotifications(current.token, enabled, abort.signal)
+    if (session === current && profile.value) {
+      profile.value.telegram_notifications_enabled = saved.enabled
+    }
+  } catch (error) {
+    if (session !== current || abort.signal.aborted) return
+    if (error instanceof ApiError && error.status === 401) expireSession()
+    else errorMessage.value = 'Не удалось сохранить настройку уведомлений.'
+  } finally {
+    if (session === current) savingNotifications.value = false
+  }
+}
+
 onMounted(() => {
   const telegram = getTelegramWebApp()
   telegram?.ready()
@@ -143,6 +172,16 @@ onUnmounted(() => {
         <button type="button" class="secondary" :disabled="signingOut" @click="signOut">
           {{ signingOut ? 'Выходим…' : 'Выйти' }}
         </button>
+        <button
+          type="button"
+          class="secondary"
+          data-notification-toggle
+          :disabled="signingOut || savingNotifications"
+          @click="toggleNotifications"
+        >
+          {{ profile.telegram_notifications_enabled ? 'Отключить уведомления' : 'Включить уведомления' }}
+        </button>
+        <p class="muted">Бот сообщает, когда сервер вашего сообщества становится доступен или недоступен.</p>
       </div>
     </section>
 

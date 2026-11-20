@@ -1,0 +1,9 @@
+[Unit]
+Description=Обработка событий и отправка уведомлений Telegram MSLegion
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=5min
+ExecStart=/usr/bin/bash /opt/mslegion-staging/current/deploy/staging/telegram-notifications.sh

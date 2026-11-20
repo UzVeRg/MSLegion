@@ -7,6 +7,7 @@ export interface Profile {
   id: string
   telegram_id: number | null
   display_name: string
+  telegram_notifications_enabled: boolean
 }
 
 export class ApiError extends Error {
@@ -49,4 +50,16 @@ export async function revokeSession(token: string, signal: AbortSignal): Promise
     headers: { Authorization: `Bearer ${token}` },
     signal,
   })
+}
+
+export async function setTelegramNotifications(
+  token: string, enabled: boolean, signal: AbortSignal,
+): Promise<{ enabled: boolean }> {
+  const response = await request('/me/telegram-notifications', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+    signal,
+  })
+  return response.json()
 }

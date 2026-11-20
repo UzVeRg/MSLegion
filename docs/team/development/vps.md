@@ -187,6 +187,23 @@ curl -fsS https://mslegion.miniapp.silentoken.com/health
 curl -fsS https://mslegion.miniapp.silentoken.com/ready
 ```
 
+### Включение Telegram-уведомлений
+
+После выпуска с миграцией `20261120_0010` установите таймер в root-сессии. Он использует серверный `TELEGRAM_BOT_TOKEN` из существующего окружения контейнера API.
+
+```bash
+release=$(readlink -f /opt/mslegion-staging/current)
+units="$release/deploy/staging"
+systemd-analyze verify "$units/mslegion-telegram-notifications.service" "$units/mslegion-telegram-notifications.timer"
+install -m 644 "$units/mslegion-telegram-notifications.service" "$units/mslegion-telegram-notifications.timer" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now mslegion-telegram-notifications.timer
+systemctl list-timers --all mslegion-telegram-notifications.timer
+journalctl -u mslegion-telegram-notifications.service -n 30 --no-pager
+```
+
+Для сквозной проверки откройте Mini App под тестовым владельцем, включите уведомления и разрешите личные сообщения. Если клиент не показывает запрос разрешения, откройте чат с ботом и нажмите «Старт». Передайте два наблюдения с разным статусом для тестового сервера. Первое задаёт исходный статус, после второго бот присылает уведомление. Для проверки отключения выключите подписку и повторите переход.
+
 В первой команде на Windows замените `/dev/null` на `NUL`. При ошибке HTTPS проверьте DNS, состояние общего Caddy и ответ внутреннего `/ready` отдельно.
 
 В PowerShell адрес проверяют командой `Resolve-DnsName mslegion.miniapp.silentoken.com -Type A`. Ожидается `2.26.120.47`. На VPS сертификат можно проверить с учётом имени сайта:

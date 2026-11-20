@@ -22,6 +22,8 @@ from app.modules.domain_events.models import DomainEvent
 from app.modules.domain_events.router import router as domain_events_router
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.router import router as integrations_router
+from app.modules.telegram_notifications.models import TelegramNotification
+from app.modules.telegram_notifications.router import router as telegram_notifications_router
 from app.modules.users.models import User
 from app.modules.users.router import router as users_router
 
@@ -32,6 +34,7 @@ api_router.include_router(auth_router, prefix="/api/v1")
 api_router.include_router(communities_router, prefix="/api/v1")
 api_router.include_router(content_router, prefix="/api/v1")
 api_router.include_router(domain_events_router, prefix="/api/v1")
+api_router.include_router(telegram_notifications_router, prefix="/api/v1")
 api_router.include_router(integrations_router, prefix="/api/v1")
 
 
@@ -61,6 +64,7 @@ async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> d
             CommunityServer,
             CommunityPost,
             DomainEvent,
+            TelegramNotification,
         ):
             await session.execute(select(model).limit(0))
     except SQLAlchemyError as exc:

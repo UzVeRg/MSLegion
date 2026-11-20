@@ -4,6 +4,15 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.modules.auth.telegram import INIT_DATA_MAX_LENGTH
+from app.modules.users.schemas import UserRead
+
+
+class OwnProfileRead(UserRead):
+    telegram_notifications_enabled: bool
+
+
+class TelegramNotificationPreference(BaseModel):
+    enabled: bool = Field(strict=True)
 
 
 class TelegramLogin(BaseModel):

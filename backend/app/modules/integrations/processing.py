@@ -12,6 +12,7 @@ from app.modules.integrations.schemas import (
     ProcessingSummary,
     ServerStatusPayload,
 )
+from app.modules.telegram_notifications.service import enqueue_status_change
 
 
 async def apply_server_status(session: AsyncSession, event: IntegrationEvent) -> ProcessingOutcome:
@@ -34,6 +35,8 @@ async def apply_server_status(session: AsyncSession, event: IntegrationEvent) ->
         )
     ):
         return "ignored"
+    if server.online is not None and server.online != payload.online:
+        await enqueue_status_change(session, server, event.id, payload.online, payload.observed_at)
     server.online = payload.online
     server.status_observed_at = payload.observed_at
     server.status_event_id = event.id

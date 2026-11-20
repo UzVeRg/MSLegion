@@ -283,3 +283,31 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — Публичный VPS доступен по SSH `2.26.120.47:22`, командный псевдоним OpenSSH — `mslegion`. Общая учётная запись `legioner` принимает индивидуальные публичные ключи и работает с копией `/srv/mslegion/repository` без членства в `sudo` и `docker`. Администратор использует отдельно предоставленный root-доступ для выпуска в `/opt/mslegion-staging`, защищённого окружения `/etc/mslegion/staging.env` и бэкапов. TLS завершает общий Caddy для Remnawave, только web подключён к его сети. API и PostgreSQL остаются в сети проекта. Порядок доступа и операций приведён в руководстве по VPS.
 - Источник — `docs/team/development/vps.md`, `docs/team/development/ssh_config.example`, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.
+
+
+## 2026-11-20 — D039 — PROJ-03
+
+- Операция — замена
+- Текст пункта — P0, P1.1, P1.2, P1.3, серверные P1.4 и P1.5 завершены. P1.6 реализован и проверен локально: владелец подписывается через Mini App, смена известного статуса создаёт личное уведомление. Для завершения нужны выпуск на VPS, установка таймера и проверка реальной доставки. Основной стек указан в командном документе.
+- Источник — `docs/team/planning/roadmap.md`, `docs/team/architecture/stack.md` и `backend/app/modules/telegram_notifications/`.
+
+
+## 2026-11-20 — D040 — PROJ-16
+
+- Операция — добавление
+- Текст пункта — смена наблюдаемого статуса и уведомление фиксируются одной транзакцией. Отправка учитывает согласие, подтверждённый Telegram ID и статус владельца. При неоднозначном результате доставка получает uncertain. Таймер VPS раз в минуту запускает обработку, пропуская активный выпуск.
+- Источник — `backend/app/modules/telegram_notifications/service.py`, `backend/app/telegram/worker.py` и `deploy/staging/mslegion-telegram-notifications.timer`.
+
+
+## 2026-11-20 — D041 — PROJ-04
+
+- Операция — замена
+- Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities, community_memberships, community_servers, community_posts, domain_events и telegram_notifications. Административный статус возвращает счётчики пользователей и событий, мониторинг обработки отдельно возвращает состояния и время старейшей ожидающей записи.
+- Источник — `backend/app/api/router.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D042 — PROJ-17
+
+- Операция — добавление
+- Текст пункта — финальная проверка согласия и отправка Telegram используют блокировку записи пользователя, согласованную с изменением настройки. Сетевой вызов ограничен 12 секундами. Незавершённое состояние sending после пяти минут переходит в uncertain без повторной отправки.
+- Источник — `backend/app/modules/telegram_notifications/service.py`, `backend/app/modules/auth/service.py` и `backend/app/telegram/bot.py`.

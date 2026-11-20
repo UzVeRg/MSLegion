@@ -79,6 +79,18 @@ async def get_own_profile(session: AsyncSession, token_hash: bytes) -> User:
     return user
 
 
+async def set_telegram_notification_preference(
+    session: AsyncSession, token_hash: bytes, enabled: bool
+) -> None:
+    async with session.begin():
+        actor = await get_own_profile(session, token_hash)
+        await session.refresh(actor, with_for_update=True)
+        if enabled and actor.telegram_notifications_since is None:
+            actor.telegram_notifications_since = datetime.now(UTC)
+        elif not enabled:
+            actor.telegram_notifications_since = None
+
+
 async def logout(session: AsyncSession, token_hash: bytes) -> None:
     async with session.begin():
         if not await repository.revoke_session(session, token_hash, datetime.now(UTC)):

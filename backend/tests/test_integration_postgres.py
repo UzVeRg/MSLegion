@@ -27,6 +27,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 import app.core.security as security_module
 import app.modules.integrations.processing as integration_processing
+import app.telegram.bot as telegram_bot
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.main import app
@@ -91,6 +92,7 @@ def downgrade_to_base(connection: Connection) -> None:
         {
             "users", "integration_events", "user_sessions", "communities",
             "community_memberships", "community_servers", "domain_events", "community_posts",
+            "telegram_notifications",
         }
     )
 
@@ -534,6 +536,68 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert (await client.delete(post_path, headers=owner)).status_code == 204
             assert (await client.get(posts, headers=owner)).json() == []
             assert (await client.get(image_path, headers=owner)).status_code == 404
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_server_notifications_with_real_postgres(monkeypatch) -> None:
+    messages = []
+
+    async def send(client, token, chat_id, message):
+        messages.append((chat_id, message))
+        return "sent"
+
+    monkeypatch.setattr(telegram_bot, "send_message", send, raising=False)
+
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            owner, _ = await login_for_community_test(client, 601)
+            preference = "/api/v1/auth/me/telegram-notifications"
+            profile = await client.get("/api/v1/auth/me", headers=owner)
+            assert profile.json()["telegram_notifications_enabled"] is False
+            enabled = await client.put(preference, headers=owner, json={"enabled": True})
+            assert enabled.json() == {"enabled": True}
+            monkeypatch.setattr(security_module.settings, "admin_api_key", "event-admin")
+            monkeypatch.setattr(security_module.settings, "server_status_api_key", "event-status")
+
+            community = await client.post(
+                "/api/v1/communities", headers=owner, json={"name": "Серверы"}
+            )
+            servers = f"/api/v1/communities/{community.json()['id']}/servers"
+            registered = await client.post(
+                servers, headers=owner, json={"name": "Тестовый", "host": "example.org", "port": 13}
+            )
+            server_id = registered.json()["id"]
+            admin = {"X-Admin-Key": "event-admin"}
+            delivery = "/api/v1/admin/telegram-notifications/send"
+            assert (await client.post(delivery, headers=owner)).status_code == 401
+
+            async def observe(index: int, online: bool) -> None:
+                moment = datetime.now(UTC) + timedelta(seconds=index)
+                receipt = await client.post(
+                    "/api/v1/callbacks/server-status",
+                    headers={"X-Callback-Key": "event-status"},
+                    json={
+                        "event_id": str(index), "server_id": server_id, "online": online,
+                        "observed_at": moment.isoformat(),
+                    },
+                )
+                assert receipt.status_code == 200
+                processed = await client.post("/api/v1/admin/callbacks/process", headers=admin)
+                assert processed.json()["applied"] == 1
+
+            await observe(1, True)
+            assert (await client.post(delivery, headers=admin)).json()["sent"] == 0
+            await observe(2, False)
+            sent = await asyncio.gather(*(client.post(delivery, headers=admin) for _ in range(2)))
+            assert sum(result.json()["sent"] for result in sent) == 1
+            assert messages == [(601, "Сервер «Тестовый» недоступен.")]
+            await observe(3, True)
+            disabled = await client.put(preference, headers=owner, json={"enabled": False})
+            assert disabled.json() == {"enabled": False}
+            result = await client.post(delivery, headers=admin)
+            assert result.json()["canceled"] == 1
+            assert len(messages) == 1
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 

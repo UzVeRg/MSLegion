@@ -1,0 +1,10 @@
+[Unit]
+Description=Периодическая обработка событий и уведомлений Telegram MSLegion
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

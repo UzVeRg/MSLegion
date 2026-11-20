@@ -191,3 +191,10 @@
 - Операция — добавление
 - Текст пункта — Команды SSH, выдача ключей, пути на VPS и операции администратора описаны в `docs/team/development/vps.md`. Готовый блок OpenSSH находится в `docs/team/development/ssh_config.example`. Для диагностики сверяй ревизию по `/opt/mslegion-staging/current` и фактическое состояние Compose, а команды выпуска и бэкапа — по `deploy/staging/update.sh` и `deploy/staging/backup.sh`.
 - Источник — указанные файлы, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.
+
+
+## 2026-11-20 — D025 — NAV-20
+
+- Операция — добавление
+- Текст пункта — настройка уведомлений находится в auth/router.py и auth/service.py. Очередь и доставка — в `backend/app/modules/telegram_notifications/`, Bot API и разовый обработчик — в `backend/app/telegram/`. Миграция `20261120_0010` добавляет настройку и очередь. Юниты и сценарий VPS находятся в `deploy/staging/`.
+- Источник — указанные исходники, `docs/team/reference/api.md` и `docs/team/development/vps.md`.
