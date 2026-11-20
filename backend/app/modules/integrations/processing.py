@@ -2,6 +2,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.communities.models import CommunityServer
+from app.modules.domain_events.repository import record_event
 from app.modules.integrations import repository
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.schemas import (
@@ -36,6 +37,13 @@ async def apply_server_status(session: AsyncSession, event: IntegrationEvent) ->
     server.online = payload.online
     server.status_observed_at = payload.observed_at
     server.status_event_id = event.id
+    record_event(
+        session,
+        "community.server.status_observed",
+        community_id=server.community_id,
+        subject_id=server.id,
+        payload={"online": payload.online, "observed_at": payload.observed_at.isoformat()},
+    )
     return "applied"
 
 

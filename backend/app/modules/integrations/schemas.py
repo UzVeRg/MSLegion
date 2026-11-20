@@ -101,3 +101,8 @@ class ProcessingSummary(BaseModel):
     applied: int = 0
     ignored: int = 0
     rejected: int = 0
+
+
+class ProcessingMetrics(ProcessingSummary):
+    pending: int
+    oldest_pending_at: datetime | None

@@ -1,12 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, delete, select
+from sqlalchemy import ColumnElement, delete, func, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.modules.communities.models import Community, CommunityMembership, CommunityServer
-from app.modules.communities.schemas import CommunityServerCreate
+from app.modules.communities.schemas import CommunityServerCreate, CommunityStatistics
 
 
 def _visible_to(user_id: UUID) -> ColumnElement[bool]:
@@ -45,13 +45,14 @@ async def list_members(
     return list(await session.scalars(query))
 
 
-async def insert_membership(session: AsyncSession, community_id: UUID, user_id: UUID) -> None:
+async def insert_membership(session: AsyncSession, community_id: UUID, user_id: UUID) -> bool:
     statement = (
         insert(CommunityMembership)
         .values(community_id=community_id, user_id=user_id)
         .on_conflict_do_nothing(index_elements=["community_id", "user_id"])
+        .returning(CommunityMembership.user_id)
     )
-    await session.execute(statement)
+    return (await session.scalar(statement)) is not None
 
 
 async def list_visible_servers(
@@ -96,3 +97,34 @@ async def delete_server(session: AsyncSession, community_id: UUID, server_id: UU
         .returning(CommunityServer.id)
     )
     return (await session.scalar(statement)) is not None
+
+
+async def get_visible_statistics(
+    session: AsyncSession, user_id: UUID, community_id: UUID
+) -> CommunityStatistics | None:
+    # Владелец учитывается в составе отдельно от строк членства.
+    members = (
+        select(func.count())
+        .select_from(CommunityMembership)
+        .where(CommunityMembership.community_id == community_id)
+        .scalar_subquery()
+        + 1
+    )
+    servers = (
+        select(
+            func.count().label("servers"),
+            func.count().filter(CommunityServer.online.is_(True)).label("online"),
+            func.count().filter(CommunityServer.online.is_(False)).label("offline"),
+            func.count().filter(CommunityServer.online.is_(None)).label("unobserved"),
+        )
+        .where(CommunityServer.community_id == community_id)
+        .subquery()
+    )
+    query = (
+        select(members.label("members"), *servers.c)
+        .select_from(Community)
+        .join(servers, true())
+        .where(Community.id == community_id, _visible_to(user_id))
+    )
+    row = (await session.execute(query)).mappings().one_or_none()
+    return CommunityStatistics.model_validate(row) if row is not None else None

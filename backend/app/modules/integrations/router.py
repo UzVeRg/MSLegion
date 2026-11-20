@@ -7,11 +7,12 @@ from app.core.database import get_session
 from app.core.exceptions import error_responses
 from app.core.security import require_admin_key, require_callback_key, require_server_status_key
 from app.core.validation import MAX_BIGINT, DatabaseText
-from app.modules.integrations import processing, service
+from app.modules.integrations import processing, repository, service
 from app.modules.integrations.schemas import (
     CallbackEventCreate,
     CallbackReceipt,
     IntegrationEventRead,
+    ProcessingMetrics,
     ProcessingSummary,
     ServerStatusEventCreate,
 )
@@ -64,6 +65,15 @@ async def process_callback_events(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> ProcessingSummary:
     return await processing.process_pending_events(session, limit)
+
+
+@router.get(
+    "/admin/callbacks/processing",
+    dependencies=[Depends(require_admin_key)],
+    summary="Получить показатели обработки событий",
+)
+async def get_processing_metrics(session: SessionDependency) -> ProcessingMetrics:
+    return await repository.get_processing_metrics(session)
 
 
 @router.get(

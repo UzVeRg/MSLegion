@@ -13,6 +13,7 @@ from app.modules.communities.schemas import (
     CommunityRead,
     CommunityServerCreate,
     CommunityServerRead,
+    CommunityStatistics,
     MembershipRead,
 )
 
@@ -134,3 +135,14 @@ async def remove_server(
     community_id: UUID, server_id: UUID, token_hash: TokenHash, session: SessionDependency
 ) -> None:
     await service.remove_server(session, token_hash, community_id, server_id)
+
+
+@router.get(
+    "/{community_id}/statistics",
+    responses=error_responses(404),
+    summary="Статистика сообщества",
+)
+async def get_statistics(
+    community_id: UUID, token_hash: TokenHash, session: SessionDependency
+) -> CommunityStatistics:
+    return await service.get_statistics(session, token_hash, community_id)

@@ -61,3 +61,11 @@ class CommunityServerRead(BaseModel):
     port: int
     online: bool | None
     status_observed_at: datetime | None
+
+
+class CommunityStatistics(BaseModel):
+    members: int
+    servers: int
+    online: int
+    offline: int
+    unobserved: int

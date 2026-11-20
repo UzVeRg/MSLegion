@@ -89,7 +89,7 @@ def downgrade_to_base(connection: Connection) -> None:
     assert set(inspect(connection).get_table_names()).isdisjoint(
         {
             "users", "integration_events", "user_sessions", "communities",
-            "community_memberships", "community_servers",
+            "community_memberships", "community_servers", "domain_events",
         }
     )
 
@@ -362,6 +362,8 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
                 "/api/v1/communities", headers=owner, json={"name": "Мониторинг"}
             )
             servers = f"/api/v1/communities/{created.json()['id']}/servers"
+            stats_path = f"/api/v1/communities/{created.json()['id']}/statistics"
+            outsider, _ = await login_for_community_test(client, 402)
             registered = await client.post(
                 servers, headers=owner, json={"name": "Сервер", "host": "example.com", "port": 4444}
             )
@@ -391,6 +393,19 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
             assert receipt.json()["event"]["processing_state"] == "pending"
             assert duplicate.json()["duplicate"] is True
             assert (await client.get(servers, headers=owner)).json()[0]["online"] is None
+            assert (await client.get(stats_path, headers=outsider)).status_code == 404
+            stats = await client.get(stats_path, headers=owner)
+            assert stats.status_code == 200
+            assert stats.json() == {
+                "members": 1, "servers": 1, "online": 0, "offline": 0, "unobserved": 1,
+            }
+            monitor = "/api/v1/admin/callbacks/processing"
+            journal = "/api/v1/admin/domain-events"
+            assert (await client.get(monitor, headers=owner)).status_code == 401
+            assert (await client.get(journal, headers=owner)).status_code == 401
+            metrics = (await client.get(monitor, headers=admin)).json()
+            assert metrics["pending"] == 1
+            assert metrics["oldest_pending_at"] is not None
 
             process = "/api/v1/admin/callbacks/process"
             assert (await client.post(process, headers=sender)).status_code == 401
@@ -409,11 +424,22 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
             assert (await client.get(servers, headers=owner)).json()[0]["online"] is None
             history = await client.get("/api/v1/admin/callbacks", headers=admin)
             assert history.json()[0]["processing_state"] == "pending"
+            before = (await client.get(journal, headers=admin)).json()
+            assert [event["event_type"] for event in before] == [
+                "community.server.registered", "community.created",
+            ]
 
             results = await asyncio.gather(*(client.post(process, headers=admin) for _ in range(2)))
             assert all(response.status_code == 200 for response in results)
             assert sum(response.json()["applied"] for response in results) == 1
             assert (await client.get(servers, headers=owner)).json()[0]["online"] is True
+            stats = (await client.get(stats_path, headers=owner)).json()
+            assert stats["online"] == 1 and stats["unobserved"] == 0
+            events = (await client.get(journal, headers=admin)).json()
+            assert len(events) == 3
+            assert events[0]["event_type"] == "community.server.status_observed"
+            assert events[0]["subject_id"] == server_id
+            assert events[0]["payload"]["online"] is True
 
             older = payload | {
                 "event_id": "old-offline", "online": False,
@@ -427,6 +453,11 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
             assert (await client.get(servers, headers=owner)).json()[0]["online"] is True
             result = await client.post(process, headers=admin)
             assert result.json() == {"applied": 0, "ignored": 0, "rejected": 0}
+            assert (await client.get(journal, headers=admin)).json() == events
+            assert (await client.get(monitor, headers=admin)).json() == {
+                "pending": 0, "applied": 1, "ignored": 1, "rejected": 1,
+                "oldest_pending_at": None,
+            }
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 

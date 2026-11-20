@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.integrations.models import IntegrationEvent
-from app.modules.integrations.schemas import CallbackEventCreate
+from app.modules.integrations.schemas import CallbackEventCreate, ProcessingMetrics
 
 
 def _processing_scope(processable: bool):
@@ -86,3 +86,18 @@ async def count_events(session: AsyncSession) -> int:
     statement = select(func.count()).select_from(IntegrationEvent)
     result = await session.execute(statement)
     return int(result.scalar_one())
+
+
+async def get_processing_metrics(session: AsyncSession) -> ProcessingMetrics:
+    state = IntegrationEvent.processing_state
+    statement = select(
+        func.count().filter(state == "pending").label("pending"),
+        func.count().filter(state == "applied").label("applied"),
+        func.count().filter(state == "ignored").label("ignored"),
+        func.count().filter(state == "rejected").label("rejected"),
+        func.min(IntegrationEvent.received_at)
+        .filter(state == "pending")
+        .label("oldest_pending_at"),
+    ).where(state.is_not(None))
+    row = (await session.execute(statement)).mappings().one()
+    return ProcessingMetrics.model_validate(row)

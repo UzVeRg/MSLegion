@@ -12,7 +12,8 @@ from app.modules.communities.exceptions import (
     CommunityServerNotFoundError,
 )
 from app.modules.communities.models import Community, CommunityMembership, CommunityServer
-from app.modules.communities.schemas import CommunityServerCreate
+from app.modules.communities.schemas import CommunityServerCreate, CommunityStatistics
+from app.modules.domain_events.repository import record_event
 from app.modules.users.service import get_user
 
 
@@ -43,6 +44,14 @@ async def create_community(session: AsyncSession, token_hash: bytes, name: str) 
         actor = await get_own_profile(session, token_hash)
         community = Community(name=name, owner_id=actor.id)
         session.add(community)
+        await session.flush()
+        record_event(
+            session,
+            "community.created",
+            community_id=community.id,
+            subject_id=community.id,
+            actor_id=actor.id,
+        )
     return community
 
 
@@ -75,7 +84,14 @@ async def add_member(
         if member_id == community.owner_id:
             return
         await get_user(session, member_id)
-        await repository.insert_membership(session, community_id, member_id)
+        if await repository.insert_membership(session, community_id, member_id):
+            record_event(
+                session,
+                "community.member.added",
+                community_id=community_id,
+                subject_id=member_id,
+                actor_id=actor.id,
+            )
 
 
 async def remove_member(
@@ -89,6 +105,13 @@ async def remove_member(
         membership = await session.get(CommunityMembership, (community_id, member_id))
         if membership is not None:
             await session.delete(membership)
+            record_event(
+                session,
+                "community.member.removed",
+                community_id=community_id,
+                subject_id=member_id,
+                actor_id=actor.id,
+            )
 
 
 async def list_servers(
@@ -110,6 +133,13 @@ async def register_server(
         server = await repository.insert_server(session, community_id, payload)
         if server is None:
             raise CommunityServerConflictError
+        record_event(
+            session,
+            "community.server.registered",
+            community_id=community_id,
+            subject_id=server.id,
+            actor_id=actor.id,
+        )
     return server
 
 
@@ -121,3 +151,20 @@ async def remove_server(
         await _require_owner(session, actor.id, community_id)
         if not await repository.delete_server(session, community_id, server_id):
             raise CommunityServerNotFoundError
+        record_event(
+            session,
+            "community.server.removed",
+            community_id=community_id,
+            subject_id=server_id,
+            actor_id=actor.id,
+        )
+
+
+async def get_statistics(
+    session: AsyncSession, token_hash: bytes, community_id: UUID
+) -> CommunityStatistics:
+    actor = await get_own_profile(session, token_hash)
+    statistics = await repository.get_visible_statistics(session, actor.id, community_id)
+    if statistics is None:
+        raise CommunityNotFoundError
+    return statistics
