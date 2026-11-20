@@ -142,3 +142,10 @@
 - Операция — добавление
 - Текст пункта — модуль сообществ находится в `backend/app/modules/communities/`. Маршруты подключены в `backend/app/api/router.py`, модели зарегистрированы в `backend/alembic/env.py`. Подробности и сценарии проверок смотри в [communities.md](communities.md).
 - Источник — указанные исходники, миграция `20261120_0005` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D018 — NAV-14
+
+- Операция — замена
+- Текст пункта — модуль сообществ и регистрации серверов находится в `backend/app/modules/communities/`. Маршруты подключены в `backend/app/api/router.py`, модели зарегистрированы в `backend/alembic/env.py`. Подробности разграничения доступа смотри в [communities.md](communities.md).
+- Источник — указанные исходники, миграции `20261120_0005` и `20261120_0006`, `docs/team/reference/api.md`.

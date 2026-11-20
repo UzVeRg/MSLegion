@@ -1,24 +1,30 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
-from app.modules.communities.models import Community, CommunityMembership
+from app.modules.communities.models import Community, CommunityMembership, CommunityServer
+from app.modules.communities.schemas import CommunityServerCreate
 
 
-async def list_visible_communities(
-    session: AsyncSession, user_id: UUID, offset: int, limit: int
-) -> list[Community]:
+def _visible_to(user_id: UUID) -> ColumnElement[bool]:
     membership = (
         select(CommunityMembership.community_id)
         .where(CommunityMembership.community_id == Community.id)
         .where(CommunityMembership.user_id == user_id)
         .exists()
     )
+    return (Community.owner_id == user_id) | membership
+
+
+async def list_visible_communities(
+    session: AsyncSession, user_id: UUID, offset: int, limit: int
+) -> list[Community]:
     query = (
         select(Community)
-        .where((Community.owner_id == user_id) | membership)
+        .where(_visible_to(user_id))
         .order_by(Community.id)
         .offset(offset)
         .limit(limit)
@@ -46,3 +52,47 @@ async def insert_membership(session: AsyncSession, community_id: UUID, user_id: 
         .on_conflict_do_nothing(index_elements=["community_id", "user_id"])
     )
     await session.execute(statement)
+
+
+async def list_visible_servers(
+    session: AsyncSession, user_id: UUID, community_id: UUID, offset: int, limit: int
+) -> list[CommunityServer] | None:
+    page = (
+        select(CommunityServer)
+        .where(CommunityServer.community_id == community_id)
+        .order_by(CommunityServer.id)
+        .offset(offset)
+        .limit(limit)
+        .subquery()
+    )
+    server = aliased(CommunityServer, page)
+    # Внешнее соединение отличает пустую страницу от недоступного сообщества.
+    query = (
+        select(Community.id, server)
+        .outerjoin(server, server.community_id == Community.id)
+        .where(Community.id == community_id, _visible_to(user_id))
+        .order_by(server.id)
+    )
+    rows = (await session.execute(query)).all()
+    return [record for _, record in rows if record is not None] if rows else None
+
+
+async def insert_server(
+    session: AsyncSession, community_id: UUID, payload: CommunityServerCreate
+) -> CommunityServer | None:
+    statement = (
+        insert(CommunityServer)
+        .values(community_id=community_id, name=payload.name, host=payload.host, port=payload.port)
+        .on_conflict_do_nothing(constraint="uq_community_servers_endpoint")
+        .returning(CommunityServer)
+    )
+    return await session.scalar(statement)
+
+
+async def delete_server(session: AsyncSession, community_id: UUID, server_id: UUID) -> bool:
+    statement = (
+        delete(CommunityServer)
+        .where(CommunityServer.community_id == community_id, CommunityServer.id == server_id)
+        .returning(CommunityServer.id)
+    )
+    return (await session.scalar(statement)) is not None

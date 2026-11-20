@@ -8,8 +8,11 @@ from app.modules.communities.exceptions import (
     CommunityNotFoundError,
     CommunityOwnerRemovalError,
     CommunityOwnerRequiredError,
+    CommunityServerConflictError,
+    CommunityServerNotFoundError,
 )
-from app.modules.communities.models import Community, CommunityMembership
+from app.modules.communities.models import Community, CommunityMembership, CommunityServer
+from app.modules.communities.schemas import CommunityServerCreate
 from app.modules.users.service import get_user
 
 
@@ -86,3 +89,35 @@ async def remove_member(
         membership = await session.get(CommunityMembership, (community_id, member_id))
         if membership is not None:
             await session.delete(membership)
+
+
+async def list_servers(
+    session: AsyncSession, token_hash: bytes, community_id: UUID, offset: int, limit: int
+) -> list[CommunityServer]:
+    actor = await get_own_profile(session, token_hash)
+    servers = await repository.list_visible_servers(session, actor.id, community_id, offset, limit)
+    if servers is None:
+        raise CommunityNotFoundError
+    return servers
+
+
+async def register_server(
+    session: AsyncSession, token_hash: bytes, community_id: UUID, payload: CommunityServerCreate
+) -> CommunityServer:
+    async with session.begin():
+        actor = await get_own_profile(session, token_hash)
+        await _require_owner(session, actor.id, community_id)
+        server = await repository.insert_server(session, community_id, payload)
+        if server is None:
+            raise CommunityServerConflictError
+    return server
+
+
+async def remove_server(
+    session: AsyncSession, token_hash: bytes, community_id: UUID, server_id: UUID
+) -> None:
+    async with session.begin():
+        actor = await get_own_profile(session, token_hash)
+        await _require_owner(session, actor.id, community_id)
+        if not await repository.delete_server(session, community_id, server_id):
+            raise CommunityServerNotFoundError

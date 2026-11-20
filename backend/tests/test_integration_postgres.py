@@ -86,7 +86,10 @@ def migrate_and_check(connection: Connection) -> None:
 def downgrade_to_base(connection: Connection) -> None:
     command.downgrade(migration_config(connection), "base")
     assert set(inspect(connection).get_table_names()).isdisjoint(
-        {"users", "integration_events", "user_sessions", "communities", "community_memberships"}
+        {
+            "users", "integration_events", "user_sessions", "communities",
+            "community_memberships", "community_servers",
+        }
     )
 
 
@@ -276,6 +279,60 @@ def test_community_membership_with_real_postgres(monkeypatch) -> None:
             assert (await client.delete(member_path, headers=owner)).status_code == 204
             assert (await client.get(detail, headers=member)).status_code == 404
             assert (await client.get(path, headers=member)).json() == []
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_community_server_access_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            owner, _ = await login_for_community_test(client, 201)
+            member, member_id = await login_for_community_test(client, 202)
+            outsider, _ = await login_for_community_test(client, 203)
+            path = "/api/v1/communities"
+            created = await client.post(path, json={"name": "Кластер"}, headers=owner)
+            assert created.status_code == 201
+            detail = f"{path}/{created.json()['id']}"
+            member_path = f"{detail}/members/{member_id}"
+            assert (await client.put(member_path, headers=owner)).status_code == 204
+
+            servers = f"{detail}/servers"
+            server = {"name": "Тестовый", "host": "Example.COM", "port": 27015}
+            assert (await client.get(servers, headers=member)).json() == []
+            assert (await client.get(servers, headers=outsider)).status_code == 404
+            assert (await client.post(servers, headers=member, json=server)).status_code == 403
+            assert (await client.post(servers, headers=outsider, json=server)).status_code == 404
+
+            for changes in ({"host": "https://example.com"}, {"port": 65536}):
+                invalid = await client.post(servers, headers=owner, json=server | changes)
+                assert invalid.status_code == 422
+            registered = await asyncio.gather(
+                client.post(servers, headers=owner, json=server),
+                client.post(servers, headers=owner, json=server | {"host": "example.com."}),
+            )
+            assert sorted(response.status_code for response in registered) == [201, 409]
+            record = next(response.json() for response in registered if response.status_code == 201)
+            assert record["host"] == "example.com"
+            assert record["port"] == 27015
+            assert record["community_id"] == created.json()["id"]
+            assert (await client.get(servers, headers=member)).json() == [record]
+            page = await client.get(servers, headers=member, params={"offset": 1})
+            assert page.status_code == 200
+            assert page.json() == []
+            address = f"{servers}/{record['id']}"
+            assert (await client.delete(address, headers=member)).status_code == 403
+            assert (await client.delete(address, headers=outsider)).status_code == 404
+
+            other = await client.post(path, headers=owner, json={"name": "Другой кластер"})
+            assert other.status_code == 201
+            wrong_community = f"{path}/{other.json()['id']}/servers/{record['id']}"
+            assert (await client.delete(wrong_community, headers=owner)).status_code == 404
+            assert (await client.get(servers, headers=owner)).json() == [record]
+
+            assert (await client.delete(member_path, headers=owner)).status_code == 204
+            assert (await client.get(servers, headers=member)).status_code == 404
+            assert (await client.delete(address, headers=owner)).status_code == 204
+            assert (await client.get(servers, headers=owner)).json() == []
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 

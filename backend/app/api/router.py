@@ -10,7 +10,7 @@ from app.core.exceptions import error_responses
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.models import UserSession
 from app.modules.auth.router import router as auth_router
-from app.modules.communities.models import Community, CommunityMembership
+from app.modules.communities.models import Community, CommunityMembership, CommunityServer
 from app.modules.communities.router import router as communities_router
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.router import router as integrations_router
@@ -42,7 +42,14 @@ async def health() -> dict[str, str]:
 )
 async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str, str]:
     try:
-        for model in (User, IntegrationEvent, UserSession, Community, CommunityMembership):
+        for model in (
+            User,
+            IntegrationEvent,
+            UserSession,
+            Community,
+            CommunityMembership,
+            CommunityServer,
+        ):
             await session.execute(select(model).limit(0))
     except SQLAlchemyError as exc:
         raise HTTPException(

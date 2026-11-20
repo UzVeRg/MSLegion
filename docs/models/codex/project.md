@@ -173,3 +173,24 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities и community_memberships через сессию запроса. Административный статус получает счётчики пользователей и событий в переданной сессии и при ошибке базы возвращает unavailable с пустыми счётчиками.
 - Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D023 — PROJ-11
+
+- Операция — замена
+- Текст пункта — серверная часть P1.4 реализует закрытые сообщества, членство и регистрацию серверов. Владелец определяется при создании и управляет составом и серверами. Действующая сессия даёт доступ к карточке и серверам своего сообщества. Регистрация сохраняет каталог адресов. Mini App по-прежнему предоставляет вход и профиль.
+- Источник — `backend/app/modules/communities/`, `frontend/src/App.vue`, `docs/team/reference/api.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D024 — PROJ-04
+
+- Операция — замена
+- Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities, community_memberships и community_servers. Административный статус получает счётчики пользователей и событий в переданной сессии и при ошибке базы возвращает unavailable с пустыми счётчиками.
+- Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D025 — PROJ-03
+
+- Операция — замена
+- Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL, Alembic, Vue 3, TypeScript и Vite. P0, P1.1 и серверная часть P1.4 завершены. P1.2 локально проверен, для завершения требуется публичный HTTPS-адрес и тестовый бот. P1.3 локально проверен, перед выпуском сценарий повторяется на целевом стенде. Следующий серверный шаг P1.5 — предметная обработка сохранённых событий.
+- Источник — `docs/team/planning/roadmap.md`, `docs/team/development/staging.md` и `backend/app/modules/communities/`.
