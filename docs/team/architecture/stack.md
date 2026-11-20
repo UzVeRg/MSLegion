@@ -16,6 +16,7 @@
 
 | Область | Технологии и условие внедрения |
 | --- | --- |
+| Вход и сессии | Проверка Telegram `initData` на backend, серверные сессии в PostgreSQL с ограниченным сроком и отзывом |
 | Пользовательский интерфейс | Vue 3, TypeScript, Vite и Telegram Mini App API |
 | Telegram-бот | aiogram 3 для Telegram-адаптера |
 | Внешние HTTP-запросы | `HTTPX AsyncClient`, когда появится исходящая интеграция |
