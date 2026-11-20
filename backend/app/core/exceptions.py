@@ -20,18 +20,6 @@ class AppError(Exception):
         super().__init__(self.message)
 
 
-class UserNotFoundError(AppError):
-    status_code = 404
-    code = "user_not_found"
-    default_message = "user not found"
-
-
-class UserTelegramIdConflictError(AppError):
-    status_code = 409
-    code = "telegram_id_conflict"
-    default_message = "user with this telegram_id already exists"
-
-
 class AuthenticationError(AppError):
     status_code = 401
     code = "unauthorized"
@@ -104,7 +92,10 @@ async def validation_error_handler(
         code="validation_error",
         message="request validation failed",
         request_id=get_request_id(request),
-        details=exc.errors(),
+        details=[
+            {key: error[key] for key in ("type", "loc", "msg")}
+            for error in exc.errors()
+        ],
     )
 
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.security import require_admin_key
+from app.core.validation import MAX_BIGINT
 from app.modules.users import service as user_service
 from app.modules.users.schemas import UserCreate, UserRead
 
@@ -32,7 +33,7 @@ async def create_user(
 )
 async def list_users(
     session: SessionDependency,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_BIGINT)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[UserRead]:
     return await user_service.list_users(

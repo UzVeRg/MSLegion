@@ -1,36 +1,35 @@
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, bindparam, func, select
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.schemas import CallbackEventCreate
 
 
-async def create_event(
+async def insert_event(
     session: AsyncSession,
     payload: CallbackEventCreate,
-) -> IntegrationEvent:
-    event = IntegrationEvent(
-        source=payload.source,
-        event_id=payload.event_id,
-        event_type=payload.event_type,
-        payload=payload.payload,
-    )
-    session.add(event)
-    return event
-
-
-async def get_event_by_external_id(
-    session: AsyncSession,
-    *,
-    source: str,
-    event_id: str,
 ) -> IntegrationEvent | None:
-    statement: Select[tuple[IntegrationEvent]] = select(IntegrationEvent).where(
-        IntegrationEvent.source == source,
-        IntegrationEvent.event_id == event_id,
+    statement = (
+        insert(IntegrationEvent)
+        .values(**payload.model_dump())
+        .on_conflict_do_nothing(constraint="uq_integration_events_source_event_id")
+        .returning(IntegrationEvent)
     )
-    result = await session.execute(statement)
-    return result.scalar_one_or_none()
+    return (await session.scalars(statement)).one_or_none()
+
+
+async def get_matching_event(
+    session: AsyncSession,
+    payload: CallbackEventCreate,
+) -> IntegrationEvent | None:
+    statement = select(IntegrationEvent).where(
+        IntegrationEvent.source == payload.source,
+        IntegrationEvent.event_id == payload.event_id,
+        IntegrationEvent.event_type == payload.event_type,
+        IntegrationEvent.payload == bindparam("expected_payload", payload.payload, type_=JSONB),
+    )
+    return (await session.scalars(statement)).one_or_none()
 
 
 async def list_events(
@@ -50,7 +49,7 @@ async def list_events(
         statement = statement.where(IntegrationEvent.event_type == event_type)
 
     statement = (
-        statement.order_by(IntegrationEvent.received_at.desc())
+        statement.order_by(IntegrationEvent.received_at.desc(), IntegrationEvent.id.desc())
         .offset(offset)
         .limit(limit)
     )

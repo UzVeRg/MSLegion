@@ -1,7 +1,7 @@
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.integrations import repository
+from app.modules.integrations.exceptions import EventIdConflictError
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.schemas import CallbackEventCreate
 
@@ -10,31 +10,14 @@ async def receive_event(
     session: AsyncSession,
     payload: CallbackEventCreate,
 ) -> tuple[IntegrationEvent, bool]:
-    existing = await repository.get_event_by_external_id(
-        session,
-        source=payload.source,
-        event_id=payload.event_id,
-    )
-    if existing is not None:
-        return existing, True
-
-    event = await repository.create_event(session, payload)
-
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        existing = await repository.get_event_by_external_id(
-            session,
-            source=payload.source,
-            event_id=payload.event_id,
-        )
+    async with session.begin():
+        event = await repository.insert_event(session, payload)
+        if event is not None:
+            return event, False
+        existing = await repository.get_matching_event(session, payload)
         if existing is None:
-            raise
+            raise EventIdConflictError
         return existing, True
-
-    await session.refresh(event)
-    return event, False
 
 
 async def list_events(

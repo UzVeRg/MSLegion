@@ -39,7 +39,9 @@ async def isolated_schema() -> AsyncIterator[AsyncEngine]:
     url = make_url(settings.test_database_url)
     working = make_url(settings.database_url)
     if not url.database or (url.host, url.port or 5432, url.database) == (
-        working.host, working.port or 5432, working.database
+        working.host,
+        working.port or 5432,
+        working.database,
     ):
         raise ValueError("TEST_DATABASE_URL must point to a dedicated database")
 
@@ -114,45 +116,31 @@ async def run_http_flow_with_real_postgres(monkeypatch, engine: AsyncEngine) -> 
             await connection.run_sync(migrate_and_check)
 
         assert (await client.get("/ready")).status_code == 200
-        user_response = await client.post(
-            "/api/v1/users",
-            headers={"X-Admin-Key": "integration-admin"},
-            json={
-                "telegram_id": 987654321,
-                "display_name": "Integration User",
-            },
+        user = {"telegram_id": 987654321, "display_name": "Integration User"}
+        responses = await asyncio.gather(
+            *(client.post("/api/v1/users", headers=admin_headers, json=user) for _ in range(2))
         )
-        assert user_response.status_code == 201
+        assert sorted(response.status_code for response in responses) == [201, 409]
 
-        first_callback = await client.post(
-            "/api/v1/callbacks/events",
-            headers={
-                "X-Callback-Key": "integration-callback",
-            },
-            json={
-                "source": "integration-test",
-                "event_id": "event-1",
-                "event_type": "ping",
-                "payload": {"value": 1},
-            },
+        callback_headers = {"X-Callback-Key": "integration-callback"}
+        event = {
+            "source": "integration-test",
+            "event_id": "1",
+            "event_type": "ping",
+            "payload": {"value": 1},
+        }
+        path = "/api/v1/callbacks/events"
+        receipts = await asyncio.gather(
+            *(client.post(path, headers=callback_headers, json=event) for _ in range(2))
         )
-        assert first_callback.status_code == 200
-        assert first_callback.json()["duplicate"] is False
+        assert all(r.status_code == 200 for r in receipts)
+        assert sorted(r.json()["duplicate"] for r in receipts) == [False, True]
+        assert receipts[0].json()["event"]["id"] == receipts[1].json()["event"]["id"]
 
-        duplicate_callback = await client.post(
-            "/api/v1/callbacks/events",
-            headers={
-                "X-Callback-Key": "integration-callback",
-            },
-            json={
-                "source": "integration-test",
-                "event_id": "event-1",
-                "event_type": "ping",
-                "payload": {"value": 1},
-            },
-        )
-        assert duplicate_callback.status_code == 200
-        assert duplicate_callback.json()["duplicate"] is True
+        for change in ({"event_type": "other"}, {"payload": {"value": True}}):
+            conflict = await client.post(path, headers=callback_headers, json=event | change)
+            assert conflict.status_code == 409
+            assert conflict.json()["error"]["code"] == "event_id_conflict"
 
         users_response = await client.get(
             "/api/v1/users", headers={"X-Admin-Key": "integration-admin"}
@@ -167,11 +155,17 @@ async def run_http_flow_with_real_postgres(monkeypatch, engine: AsyncEngine) -> 
             },
         )
         assert events_response.status_code == 200
-        assert len(events_response.json()) == 1
+        assert [row["payload"] for row in events_response.json()] == [{"value": 1}]
 
         status = await client.get("/api/v1/admin/status", headers=admin_headers)
         assert status.status_code == 200
         assert status.json()["users"] == status.json()["integration_events"] == 1
+
+        nullable = event | {"event_id": "nullable", "payload": None}
+        for duplicate in (False, True):
+            receipt = await client.post(path, headers=callback_headers, json=nullable)
+            assert receipt.status_code == 200
+            assert receipt.json()["duplicate"] is duplicate
 
         async with engine.begin() as connection:
             await connection.run_sync(downgrade_to_base)

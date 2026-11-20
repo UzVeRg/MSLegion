@@ -37,3 +37,17 @@
 - Операция — замена
 - Текст пункта — модели пользователей и событий находятся в models.py соответствующих модулей, миграции в `backend/alembic/versions/`. Compose предоставляет postgres и postgres-test. Из backend запускай быстрые тесты командой `..\.venv\Scripts\python.exe -m pytest -m "not integration"`. Интеграционный сценарий создаёт временную отдельную схему, применяет и сверяет миграции, проверяет HTTP API и откат до base, затем удаляет только свою схему. Порядок запуска приведён в командном руководстве.
 - Источник — `backend/tests/test_integration_postgres.py`, `backend/alembic/env.py`, `docs/team/development/testing.md` и `docker-compose.yml`.
+
+
+## 2026-11-20 — D003 — NAV-05
+
+- Операция — добавление
+- Текст пункта — общие ограничения PostgreSQL для HTTP-ввода находятся в `backend/app/core/validation.py`, проверка содержимого JSONB — в `backend/app/modules/integrations/schemas.py`. Некорректный ввод проверяет test_validation.py, параллельную запись и повторы — test_integration_postgres.py.
+- Источник — `backend/tests/test_validation.py` и `backend/tests/test_integration_postgres.py`.
+
+
+## 2026-11-20 — D004 — NAV-06
+
+- Операция — добавление
+- Текст пункта — классы предметных ошибок размещаются в exceptions.py модуля users или integrations. Базовый AppError и преобразование исключений в HTTP-ответ находятся в ядре.
+- Источник — `backend/app/core/exceptions.py`, `backend/app/modules/users/exceptions.py` и `backend/app/modules/integrations/exceptions.py`.

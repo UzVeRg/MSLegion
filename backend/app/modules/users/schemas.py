@@ -3,10 +3,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.validation import MAX_BIGINT, DatabaseText
+
 
 class UserCreate(BaseModel):
-    telegram_id: int | None = Field(default=None, gt=0)
-    display_name: str = Field(min_length=1, max_length=128)
+    telegram_id: int | None = Field(default=None, gt=0, le=MAX_BIGINT)
+    display_name: DatabaseText = Field(min_length=1, max_length=128)
 
     @field_validator("display_name")
     @classmethod

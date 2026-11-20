@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.security import require_admin_key, require_callback_key
+from app.core.validation import MAX_BIGINT, DatabaseText
 from app.modules.integrations import service
 from app.modules.integrations.schemas import (
     CallbackEventCreate,
@@ -40,10 +41,10 @@ async def receive_event(
 )
 async def list_callback_events(
     session: SessionDependency,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_BIGINT)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    source: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
-    event_type: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    source: Annotated[DatabaseText | None, Query(min_length=1, max_length=64)] = None,
+    event_type: Annotated[DatabaseText | None, Query(min_length=1, max_length=128)] = None,
 ) -> list[IntegrationEventRead]:
     return await service.list_events(
         session,

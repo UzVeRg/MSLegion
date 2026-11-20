@@ -1,15 +1,39 @@
+import math
+import re
 import uuid
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
+from app.core.validation import DatabaseText
+
+
+def validate_jsonb(value: JsonValue) -> None:
+    if isinstance(value, str) and re.search(r"[\x00\ud800-\udfff]", value):
+        raise ValueError("JSON strings must contain valid Unicode without NUL")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("JSON numbers must be finite")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            validate_jsonb(key)
+            validate_jsonb(item)
+    elif isinstance(value, list):
+        for item in value:
+            validate_jsonb(item)
+
 
 class CallbackEventCreate(BaseModel):
-    source: str = Field(min_length=1, max_length=64)
-    event_id: str = Field(min_length=1, max_length=128)
-    event_type: str = Field(min_length=1, max_length=128)
+    source: DatabaseText = Field(min_length=1, max_length=64)
+    event_id: DatabaseText = Field(min_length=1, max_length=128)
+    event_type: DatabaseText = Field(min_length=1, max_length=128)
     payload: JsonValue
+
+    @field_validator("payload")
+    @classmethod
+    def require_storable_payload(cls, value: JsonValue) -> JsonValue:
+        validate_jsonb(value)
+        return value
 
     @field_validator("source", "event_id", "event_type")
     @classmethod
