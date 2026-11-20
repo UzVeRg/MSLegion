@@ -2,25 +2,9 @@
 
 ## Публичный стенд на VPS
 
-Стенд доступен по адресу [mslegion.miniapp.silentoken.com](https://mslegion.miniapp.silentoken.com/) и через кнопку «Открыть MSLegion» у [@MSLegion_Bot](https://t.me/MSLegion_Bot).
+Порядок подключения по SSH, выпуска, диагностики и восстановления базы приведён в [руководстве по VPS](vps.md). Для команды есть [готовый шаблон SSH](ssh_config.example). Дальше описан отдельный HTTPS-стенд для локальной проверки.
 
-`legioner` работает в `/srv/mslegion/repository`. Администратор развёртывает проверенные коммиты из отдельной копии Git в `/opt/mslegion-staging/source.git`. Каталог `/opt/mslegion-staging` доступен только root, активная сборка находится по ссылке `/opt/mslegion-staging/current`. Конфигурация окружения хранится в `/etc/mslegion/staging.env` с владельцем `root:root` и правами `600`. Каталог `/etc/mslegion` имеет права `700`.
-
-`deploy/staging/compose.proxy.yml` подключает только веб-контейнер к общей сети Docker `remnawave-network`, заданной в `STAGING_PROXY_NETWORK`. Публичные 80 и 443 обслуживает `caddy-remnawave`. В `/opt/caddy-remnawave/Caddyfile` домен направлен на `mslegion-staging-web:80`, сертификатом управляет внешний Caddy. Перед правкой сохраните копию файла, проверьте всю конфигурацию командой `caddy validate` внутри контейнера и примените через `caddy reload`. Caddyfile смонтирован отдельным файлом. При записи новой конфигурации и восстановлении сохраняйте исходный файл и меняйте его содержимое.
-
-Для первого развёртывания установите Docker и Compose с поддержкой `!reset`. Создайте `/opt/mslegion-staging/releases` с правами `700`, клонируйте репозиторий в `/opt/mslegion-staging/source.git` командой `git clone --bare --single-branch --branch main` с адресом GitHub и путём назначения. Запустите от root копию `update.sh` из проверенного коммита. Node.js хоста для этого режима не нужен.
-
-Для обновления проверьте изменения выбранного коммита `main`, включая Dockerfile, Compose и сценарии. Затем передайте полный SHA от root.
-
-```bash
-bash /opt/mslegion-staging/current/deploy/staging/update.sh <проверенный-SHA>
-```
-
-Сценарий собирает и тестирует frontend в контейнере Node.js, собирает API, сохраняет дамп перед обновлением и ожидает готовности Compose. При сбое ссылка `current` сохраняет прежнее значение. Проверьте состояние контейнеров и ревизию Alembic перед повтором. Для возврата приложения проверьте совместимость прежней версии со схемой БД и используйте прежний каталог выпуска. После обновления проверьте HTTPS-ответы `/`, `/health` и `/ready`.
-
-Файлы `mslegion-backup.service` и `mslegion-backup.timer` из `deploy/staging/` устанавливаются в `/etc/systemd/system`. После `systemctl daemon-reload` включите расписание командой `systemctl enable --now mslegion-backup.timer`. Таймер запускает копирование ежедневно в 01:00 UTC, архивы хранятся 14 суток в `/var/backups/mslegion` на VPS. Разовый запуск выполняется командой `systemctl start mslegion-backup.service`. Проверяйте расписание и результаты через `systemctl list-timers mslegion-backup.timer` и `journalctl -u mslegion-backup.service`.
-
-## Запуск
+## Локальный запуск
 
 Из корня репозитория соберите Mini App с Node.js 24.15 или новее в ветке 24.
 
@@ -47,13 +31,13 @@ docker compose --env-file .env.staging -f compose.staging.yml cp web:/data/caddy
 curl.exe --fail --cacert $stagingRoot https://localhost/ready
 ```
 
-## Проверка из Telegram
+## Проверка отдельного стенда из Telegram
 
 Укажите в `STAGING_SITE_ADDRESS` публичное DNS-имя, направленное на хост стенда, и задайте доступный извне адрес прослушивания в `STAGING_BIND_ADDRESS`. Откройте порты 80 и 443 на хосте. Caddy получает сертификат для домена и хранит его в отдельном томе. Перед настройкой бота проверьте, что `/` и `/ready` доступны по HTTPS с доверенным сертификатом. [Документация Caddy об автоматическом HTTPS](https://caddyserver.com/docs/automatic-https)
 
 В BotFather настройте кнопку меню тестового бота на адрес Mini App. Для входа должен использоваться токен этого же бота в серверном окружении. Откройте кнопку в клиенте Telegram, дождитесь своего профиля, затем выйдите и проверьте повторный вход. [Кнопка меню в документации Telegram](https://core.telegram.org/bots/webapps#launching-mini-apps-from-the-menu-button)
 
-## Проверка восстановления PostgreSQL
+## Локальная проверка восстановления PostgreSQL
 
 Делайте проверку в базе с отдельным именем. В примере архив создаётся внутри контейнера и переносится через `docker compose cp`, чтобы PowerShell сохранял двоичное содержимое.
 

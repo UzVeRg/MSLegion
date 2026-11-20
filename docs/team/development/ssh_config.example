@@ -1,0 +1,17 @@
+# Скопируйте блок в ~/.ssh/config. Замените IdentityFile путём к своему ключу.
+Host mslegion
+    HostName 2.26.120.47
+    Port 22
+    User legioner
+    IdentityFile ~/.ssh/MSLegion/Legioner
+    IdentitiesOnly yes
+    StrictHostKeyChecking ask
+
+# Дополнительный блок для администратора с уже выданным root-ключом.
+# Host mslegion-root
+#     HostName 2.26.120.47
+#     Port 22
+#     User root
+#     IdentityFile ~/.ssh/MSLegion/Admin
+#     IdentitiesOnly yes
+#     StrictHostKeyChecking ask

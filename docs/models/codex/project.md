@@ -276,3 +276,10 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — добавление
 - Текст пункта — Публичный стенд MSLegion обслуживает общий Caddy для Remnawave. TLS завершается в общем прокси, только web подключён к его сети, API и PostgreSQL остаются в сети проекта. Администратор развёртывает одобренный коммит в каталоге root, а общая учётная запись legioner работает со своей отдельной копией в /srv/mslegion/repository. Конфигурация staging доступна root и хранится вне Git.
 - Источник — `compose.staging.yml`, `deploy/staging/compose.proxy.yml` и `docs/team/development/staging.md`.
+
+
+## 2026-11-20 — D038 — PROJ-15
+
+- Операция — замена
+- Текст пункта — Публичный VPS доступен по SSH `2.26.120.47:22`, командный псевдоним OpenSSH — `mslegion`. Общая учётная запись `legioner` принимает индивидуальные публичные ключи и работает с копией `/srv/mslegion/repository` без членства в `sudo` и `docker`. Администратор использует отдельно предоставленный root-доступ для выпуска в `/opt/mslegion-staging`, защищённого окружения `/etc/mslegion/staging.env` и бэкапов. TLS завершает общий Caddy для Remnawave, только web подключён к его сети. API и PostgreSQL остаются в сети проекта. Порядок доступа и операций приведён в руководстве по VPS.
+- Источник — `docs/team/development/vps.md`, `docs/team/development/ssh_config.example`, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.

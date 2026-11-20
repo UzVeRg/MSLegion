@@ -184,3 +184,10 @@
 - Операция — замена
 - Текст пункта — Базовый HTTPS-стенд определяют `compose.staging.yml`, `deploy/staging/Caddyfile`, `backend/Dockerfile` и `.env.staging.example`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Compose применяет миграции до запуска API. На VPS `deploy/staging/compose.proxy.yml` подключает только web к общей сети прокси и снимает публикацию портов приложения. Сценарий `update.sh` развёртывает проверенный SHA, `backup.sh` создаёт дамп PostgreSQL, а `mslegion-backup.timer` задаёт расписание. Все сценарии и юниты находятся в `deploy/staging/`.
 - Источник — указанные файлы и `docs/team/development/staging.md`.
+
+
+## 2026-11-20 — D024 — NAV-19
+
+- Операция — добавление
+- Текст пункта — Команды SSH, выдача ключей, пути на VPS и операции администратора описаны в `docs/team/development/vps.md`. Готовый блок OpenSSH находится в `docs/team/development/ssh_config.example`. Для диагностики сверяй ревизию по `/opt/mslegion-staging/current` и фактическое состояние Compose, а команды выпуска и бэкапа — по `deploy/staging/update.sh` и `deploy/staging/backup.sh`.
+- Источник — указанные файлы, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.
