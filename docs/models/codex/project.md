@@ -124,3 +124,10 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — добавление
 - Текст пункта — P0.2 реализован. Маршрут POST /api/v1/auth/telegram проверяет initData и одной транзакцией связывает пользователя и создаёт сессию на 8 часов. PostgreSQL хранит SHA-256 случайного токена, UUID владельца, срок действия и время отзыва. GET /api/v1/auth/me возвращает профиль активного владельца действующей сессии, POST /api/v1/auth/logout отзывает только предъявленную сессию. Отсутствие TELEGRAM_BOT_TOKEN отключает выдачу сессий. Проверка в клиенте Telegram запланирована в P1.
 - Источник — `backend/app/modules/auth/`, миграция `20261120_0004`, `backend/tests/test_integration_postgres.py` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D016 — PROJ-03
+
+- Операция — замена
+- Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL и Alembic. P0 завершён: работают привязка Telegram к UUID, отзываемые пользовательские сессии, собственный профиль и отдельные служебные полномочия. Ближайший шаг P1.1 — оболочка Mini App на Vue 3, TypeScript и Vite. HTTPS-стенд и бот предшествуют проверке в Telegram, проверка восстановления БД — первому публичному выпуску. Платежи, экономика и выделение сервисов отложены.
+- Источник — `backend/pyproject.toml`, `backend/tests/test_integration_postgres.py` и `docs/team/planning/roadmap.md`.

@@ -345,10 +345,29 @@ def test_telegram_sessions_with_real_postgres(monkeypatch) -> None:
                 assert first.json()["id"] == third.json()["id"]
                 assert second.json()["telegram_id"] == 202
                 assert first.json()["id"] != second.json()["id"]
-                other_user = await client.get(
-                    f"/api/v1/users/{second.json()['id']}", headers=bearer(first_token)
+                other_id = second.json()["id"]
+                protected_routes = (
+                    ("GET", "/api/v1/users", None),
+                    ("POST", "/api/v1/users", {"display_name": "Проверка"}),
+                    ("GET", f"/api/v1/users/{other_id}", None),
+                    (
+                        "PUT",
+                        f"/api/v1/users/{other_id}/telegram/confirmation",
+                        {"telegram_id": 202},
+                    ),
+                    ("GET", "/api/v1/admin/status", None),
+                    ("GET", "/api/v1/admin/callbacks", None),
+                    (
+                        "POST",
+                        "/api/v1/callbacks/events",
+                        {"source": "test", "event_id": "deny-user-session", "event_type": "ping"},
+                    ),
                 )
-                assert other_user.status_code == 401
+                for method, path, payload in protected_routes:
+                    denied = await client.request(
+                        method, path, headers=bearer(first_token), json=payload
+                    )
+                    assert denied.status_code == 401, (method, path)
 
                 async with engine.begin() as connection:
                     result = await connection.execute(text("SELECT token_hash FROM user_sessions"))

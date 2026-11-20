@@ -114,3 +114,10 @@
 - Операция — замена
 - Текст пункта — модели пользователей, событий и сессий находятся в models.py соответствующих модулей, миграции в `backend/alembic/versions/`. Compose предоставляет postgres и postgres-test. Из backend запускай быстрые тесты командой `..\.venv\Scripts\python.exe -m pytest -m "not integration"`. PostgreSQL-сценарии используют отдельные временные схемы, проверяют миграции и откат до base, привязку Telegram и жизненный цикл сессий, затем удаляют только свои схемы. Порядок запуска приведён в командном руководстве.
 - Источник — `backend/tests/test_integration_postgres.py`, `backend/alembic/env.py`, `docs/team/development/testing.md` и `docker-compose.yml`.
+
+
+## 2026-11-20 — D014 — NAV-04
+
+- Операция — замена
+- Текст пункта — проверки ключей X-Admin-Key и X-Callback-Key находятся в `backend/app/core/security.py`, а схема пользовательского Bearer и её зависимость — в `backend/app/modules/auth/router.py`. Раздельные ключи проверяет `backend/tests/test_access.py`. Сценарий сессий в `backend/tests/test_integration_postgres.py` предъявляет действующую пользовательскую сессию каждому служебному маршруту и ожидает отказ.
+- Источник — указанные исходники и `docs/team/reference/api.md`.
