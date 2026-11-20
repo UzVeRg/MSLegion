@@ -70,6 +70,7 @@ async def run_http_flow_with_real_postgres(
         ) as client:
             user_response = await client.post(
                 "/api/v1/users",
+                headers={"X-Admin-Key": "integration-admin"},
                 json={
                     "telegram_id": 987654321,
                     "display_name": "Integration User",
@@ -107,7 +108,9 @@ async def run_http_flow_with_real_postgres(
             assert duplicate_callback.status_code == 200
             assert duplicate_callback.json()["duplicate"] is True
 
-            users_response = await client.get("/api/v1/users")
+            users_response = await client.get(
+                "/api/v1/users", headers={"X-Admin-Key": "integration-admin"}
+            )
             assert users_response.status_code == 200
             assert len(users_response.json()) == 1
 

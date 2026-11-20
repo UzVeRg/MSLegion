@@ -17,7 +17,7 @@
    Copy-Item .env.example .env
    ```
 
-   Задайте локальные значения `ADMIN_API_KEY` и `CALLBACK_API_KEY`. Если меняете реквизиты PostgreSQL, согласуйте переменные `POSTGRES_*` с `DATABASE_URL`. Для интеграционных тестов согласуйте также `TEST_DATABASE_URL` с настройками тестового сервиса.
+   Задайте два разных случайных ключа `ADMIN_API_KEY` и `CALLBACK_API_KEY` в локальном `.env`. Сгенерировать каждый можно командой `py -c "import secrets; print(secrets.token_urlsafe(32))"`. Пустые значения и ключи из прежнего шаблона отключают доступ к соответствующим маршрутам (HTTP 401). Если меняете реквизиты PostgreSQL, согласуйте переменные `POSTGRES_*` с `DATABASE_URL`. Для интеграционных тестов согласуйте также `TEST_DATABASE_URL` с настройками тестового сервиса.
 
 3. Запустите PostgreSQL и дождитесь состояния `healthy` в выводе `docker compose ps`.
 

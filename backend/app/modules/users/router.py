@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.security import require_admin_key
 from app.modules.users import service as user_service
 from app.modules.users.schemas import UserCreate, UserRead
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin_key)])
 
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 

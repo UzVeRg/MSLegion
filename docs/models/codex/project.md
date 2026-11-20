@@ -19,3 +19,10 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 Основной стек — Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL, Alembic. Ближайшие задачи — защита пользовательского API, Telegram-авторизация, сессии, профиль и роли. Для Mini App запланированы Vue 3, TypeScript и Vite. Платежи, экономика и выделение сервисов отложены.
 
 Источник: `backend/pyproject.toml`, `docs/team/architecture/stack.md`, `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D001 — PROJ-02
+
+- Операция — замена
+- Текст пункта — backend предоставляет публичные проверки /health и /ready. Создание и чтение пользователей, административный статус и история событий требуют X-Admin-Key, приём события требует отдельный X-Callback-Key. Незаданный или старый шаблонный ключ отключает соответствующий доступ. Telegram-вход, пользовательский профиль, frontend и бот ещё предстоит реализовать.
+- Источник — `backend/app/core/config.py`, `backend/app/core/security.py`, маршрутизаторы в `backend/app/modules/` и `docs/team/reference/api.md`.

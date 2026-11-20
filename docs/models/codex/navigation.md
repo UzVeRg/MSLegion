@@ -23,3 +23,10 @@
 - Рабочая и тестовая базы — `docker-compose.yml`, сервисы `postgres` и `postgres-test`.
 - Быстрые тесты из `backend` — `..\.venv\Scripts\python.exe -m pytest -m "not integration"`.
 - Интеграционный сценарий — `backend/tests/test_integration_postgres.py`. Проверяй тестовую БД и порядок запуска по `docs/team/development/testing.md`.
+
+
+## 2026-11-20 — D001 — NAV-04
+
+- Операция — добавление
+- Текст пункта — граница административного управления пользователями и настройки раздельных ключей проверяются в `backend/tests/test_access.py`. Схемы авторизации OpenAPI и проверка заголовков находятся в `backend/app/core/security.py`.
+- Источник — `backend/tests/test_access.py`, `backend/app/core/config.py`, `backend/app/core/security.py`.
