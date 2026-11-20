@@ -10,7 +10,7 @@ npm --prefix frontend run build
 if (-not (Test-Path .env.staging)) { Copy-Item .env.staging.example .env.staging }
 ```
 
-Задайте `POSTGRES_PASSWORD` в `.env.staging`. Используйте случайное значение из букв, цифр, дефисов и подчёркиваний, так как пароль входит в URL соединения. Для теста из Telegram укажите токен отдельного тестового бота в `TELEGRAM_BOT_TOKEN`. При необходимости задайте отдельные `ADMIN_API_KEY` и `CALLBACK_API_KEY`.
+Задайте `POSTGRES_PASSWORD` в `.env.staging`. Используйте случайное значение из букв, цифр, дефисов и подчёркиваний, так как пароль входит в URL соединения. Для теста из Telegram укажите токен отдельного тестового бота в `TELEGRAM_BOT_TOKEN`. При необходимости задайте разные `ADMIN_API_KEY`, `CALLBACK_API_KEY` и `SERVER_STATUS_API_KEY`.
 
 ```powershell
 docker compose --env-file .env.staging -f compose.staging.yml up -d --build --wait

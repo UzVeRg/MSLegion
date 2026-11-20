@@ -12,6 +12,9 @@ admin_key_header = APIKeyHeader(name="X-Admin-Key", scheme_name="AdminKey", auto
 callback_key_header = APIKeyHeader(
     name="X-Callback-Key", scheme_name="CallbackKey", auto_error=False
 )
+server_status_key_header = APIKeyHeader(
+    name="X-Callback-Key", scheme_name="ServerStatusKey", auto_error=False
+)
 
 
 def key_matches(provided: str | None, configured: str | None) -> bool:
@@ -32,3 +35,10 @@ async def require_callback_key(
 ) -> None:
     if not key_matches(x_callback_key, settings.callback_api_key):
         raise AuthenticationError("Недействительный ключ API для приёма событий")
+
+
+async def require_server_status_key(
+    x_callback_key: Annotated[str | None, Security(server_status_key_header)],
+) -> None:
+    if not key_matches(x_callback_key, settings.server_status_api_key):
+        raise AuthenticationError("Недействительный ключ API для статуса серверов")

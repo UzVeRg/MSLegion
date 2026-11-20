@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base
@@ -37,3 +38,6 @@ class CommunityServer(Base):
     name: Mapped[str] = mapped_column(String(128))
     host: Mapped[str] = mapped_column(String(253))
     port: Mapped[int]
+    online: Mapped[bool | None]
+    status_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status_event_id: Mapped[UUID | None]

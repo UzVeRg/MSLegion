@@ -149,3 +149,10 @@
 - Операция — замена
 - Текст пункта — модуль сообществ и регистрации серверов находится в `backend/app/modules/communities/`. Маршруты подключены в `backend/app/api/router.py`, модели зарегистрированы в `backend/alembic/env.py`. Подробности разграничения доступа смотри в [communities.md](communities.md).
 - Источник — указанные исходники, миграции `20261120_0005` и `20261120_0006`, `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D019 — NAV-15
+
+- Операция — добавление
+- Текст пункта — регистрация источника server-status и административный запуск обработки находятся в `backend/app/modules/integrations/router.py`, транзакционный обработчик — в processing.py того же модуля. Отдельный ключ SERVER_STATUS_API_KEY проверяется в `backend/app/core/security.py`. Миграция `20261120_0007` добавляет состояния обработки и поля наблюдения сервера. Проверки — в `backend/tests/test_integration_postgres.py`.
+- Источник — указанные исходники и `docs/team/reference/api.md`.

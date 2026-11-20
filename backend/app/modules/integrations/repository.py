@@ -6,28 +6,53 @@ from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.schemas import CallbackEventCreate
 
 
+def _processing_scope(processable: bool):
+    if processable:
+        return IntegrationEvent.processing_state.is_not(None)
+    return IntegrationEvent.processing_state.is_(None)
+
+
 async def insert_event(
     session: AsyncSession,
     payload: CallbackEventCreate,
+    *,
+    processing_state: str | None = None,
 ) -> IntegrationEvent | None:
     statement = (
         insert(IntegrationEvent)
-        .values(**payload.model_dump())
-        .on_conflict_do_nothing(constraint="uq_integration_events_source_event_id")
+        .values(**payload.model_dump(), processing_state=processing_state)
+        .on_conflict_do_nothing(
+            index_elements=[IntegrationEvent.source, IntegrationEvent.event_id],
+            index_where=_processing_scope(processing_state is not None),
+        )
         .returning(IntegrationEvent)
     )
     return (await session.scalars(statement)).one_or_none()
 
 
+async def claim_pending_event(session: AsyncSession) -> IntegrationEvent | None:
+    statement = (
+        select(IntegrationEvent)
+        .where(IntegrationEvent.processing_state == "pending")
+        .order_by(IntegrationEvent.received_at, IntegrationEvent.id)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    return await session.scalar(statement)
+
+
 async def get_matching_event(
     session: AsyncSession,
     payload: CallbackEventCreate,
+    *,
+    processable: bool = False,
 ) -> IntegrationEvent | None:
     statement = select(IntegrationEvent).where(
         IntegrationEvent.source == payload.source,
         IntegrationEvent.event_id == payload.event_id,
         IntegrationEvent.event_type == payload.event_type,
         IntegrationEvent.payload == bindparam("expected_payload", payload.payload, type_=JSONB),
+        _processing_scope(processable),
     )
     return (await session.scalars(statement)).one_or_none()
 

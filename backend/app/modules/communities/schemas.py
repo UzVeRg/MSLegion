@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from ipaddress import ip_address
 from typing import Annotated
 from uuid import UUID
@@ -58,3 +59,5 @@ class CommunityServerRead(BaseModel):
     name: str
     host: str
     port: int
+    online: bool | None
+    status_observed_at: datetime | None

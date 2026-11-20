@@ -5,13 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.exceptions import error_responses
-from app.core.security import require_admin_key, require_callback_key
+from app.core.security import require_admin_key, require_callback_key, require_server_status_key
 from app.core.validation import MAX_BIGINT, DatabaseText
-from app.modules.integrations import service
+from app.modules.integrations import processing, service
 from app.modules.integrations.schemas import (
     CallbackEventCreate,
     CallbackReceipt,
     IntegrationEventRead,
+    ProcessingSummary,
+    ServerStatusEventCreate,
 )
 
 router = APIRouter(tags=["integrations"], responses=error_responses(401, 422))
@@ -22,7 +24,7 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 @router.post(
     "/callbacks/events",
     response_model=CallbackReceipt,
-    responses=error_responses(409),
+    responses=error_responses(403, 409),
     dependencies=[Depends(require_callback_key)],
 )
 async def receive_event(
@@ -34,6 +36,34 @@ async def receive_event(
         duplicate=duplicate,
         event=IntegrationEventRead.model_validate(event),
     )
+
+
+@router.post(
+    "/callbacks/server-status",
+    response_model=CallbackReceipt,
+    responses=error_responses(409),
+    dependencies=[Depends(require_server_status_key)],
+    summary="Принять наблюдение статуса сервера",
+)
+async def receive_server_status(
+    payload: ServerStatusEventCreate,
+    session: SessionDependency,
+) -> CallbackReceipt:
+    event, duplicate = await service.receive_server_status(session, payload)
+    return CallbackReceipt(duplicate=duplicate, event=IntegrationEventRead.model_validate(event))
+
+
+@router.post(
+    "/admin/callbacks/process",
+    response_model=ProcessingSummary,
+    dependencies=[Depends(require_admin_key)],
+    summary="Обработать ожидающие события",
+)
+async def process_callback_events(
+    session: SessionDependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> ProcessingSummary:
+    return await processing.process_pending_events(session, limit)
 
 
 @router.get(

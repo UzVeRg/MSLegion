@@ -24,6 +24,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       CALLBACK_API_KEY: ${CALLBACK_API_KEY:-}
+      SERVER_STATUS_API_KEY: ${SERVER_STATUS_API_KEY:-}
     command: ["sh", "-ec", "alembic upgrade head && exec python -m app"]
     depends_on:
       postgres:

@@ -1,12 +1,24 @@
 import math
 import re
 import uuid
-from datetime import datetime
-from typing import Literal
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    StringConstraints,
+    field_validator,
+)
 
 from app.core.validation import DatabaseText
+
+SERVER_STATUS_SOURCE = "server-status"
+SERVER_STATUS_EVENT_TYPE = "server.status"
+ProcessingOutcome = Literal["applied", "ignored", "rejected"]
 
 
 def validate_jsonb(value: JsonValue) -> None:
@@ -55,9 +67,37 @@ class IntegrationEventRead(BaseModel):
     event_type: str
     payload: JsonValue
     received_at: datetime
+    processing_state: Literal["pending", "applied", "ignored", "rejected"] | None = None
 
 
 class CallbackReceipt(BaseModel):
     accepted: Literal[True] = True
     duplicate: bool
     event: IntegrationEventRead
+
+
+class ServerStatusPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    server_id: uuid.UUID
+    online: bool = Field(strict=True)
+    observed_at: AwareDatetime
+
+
+class ServerStatusEventCreate(ServerStatusPayload):
+    event_id: Annotated[
+        DatabaseText, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+    ]
+
+    @field_validator("observed_at")
+    @classmethod
+    def normalize_observed_at(cls, value: datetime) -> datetime:
+        if value > datetime.now(UTC) + timedelta(minutes=1):
+            raise ValueError("Время наблюдения не может опережать сервер более чем на минуту")
+        return value.astimezone(UTC)
+
+
+class ProcessingSummary(BaseModel):
+    applied: int = 0
+    ignored: int = 0
+    rejected: int = 0

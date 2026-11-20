@@ -16,16 +16,13 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "INFO"
 
-    database_url: str = (
-        "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5432/mslegion"
-    )
+    database_url: str = "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5432/mslegion"
     admin_api_key: str | None = Field(default=None, repr=False)
     callback_api_key: str | None = Field(default=None, repr=False)
+    server_status_api_key: str | None = Field(default=None, repr=False)
     telegram_bot_token: SecretStr | None = None
 
-    test_database_url: str = (
-        "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5434/mslegion_test"
-    )
+    test_database_url: str = "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5434/mslegion_test"
     run_integration_tests: bool = False
 
     model_config = SettingsConfigDict(
@@ -36,7 +33,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("admin_api_key", "callback_api_key")
+    @field_validator("admin_api_key", "callback_api_key", "server_status_api_key")
     @classmethod
     def validate_api_key(cls, value: str | None) -> str | None:
         if not value or value.strip() in {"", "change-me", "change-me-callback"}:
@@ -58,7 +55,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def ensure_distinct_keys(self) -> Self:
-        if self.admin_api_key and self.admin_api_key == self.callback_api_key:
+        keys = [
+            key
+            for key in (self.admin_api_key, self.callback_api_key, self.server_status_api_key)
+            if key is not None
+        ]
+        if len(set(keys)) != len(keys):
             raise ValueError("Ключи API для администрирования и приёма событий должны различаться")
         return self
 

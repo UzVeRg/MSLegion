@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 import app.core.security as security_module
+import app.modules.integrations.processing as integration_processing
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.main import app
@@ -207,9 +208,23 @@ def signed_telegram_data(telegram_id: int, *, bot_token: str, now: int) -> str:
 
 
 @asynccontextmanager
-async def migrated_telegram_client(monkeypatch) -> AsyncIterator[AsyncClient]:
+async def migrated_telegram_client(
+    monkeypatch, *, legacy_status_event: bool = False
+) -> AsyncIterator[AsyncClient]:
     async with isolated_schema() as engine:
         async with engine.begin() as connection:
+            if legacy_status_event:
+                await connection.run_sync(
+                    lambda conn: command.upgrade(migration_config(conn), "20261120_0006")
+                )
+                await connection.execute(
+                    text(
+                        "INSERT INTO integration_events "
+                        "(id, source, event_id, event_type, payload) "
+                        "VALUES (:id, 'server-status', 'online', 'server.status', '{}')"
+                    ),
+                    {"id": uuid4()},
+                )
             await connection.run_sync(migrate_and_check)
         factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -333,6 +348,85 @@ def test_community_server_access_with_real_postgres(monkeypatch) -> None:
             assert (await client.get(servers, headers=member)).status_code == 404
             assert (await client.delete(address, headers=owner)).status_code == 204
             assert (await client.get(servers, headers=owner)).json() == []
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch, legacy_status_event=True) as client:
+            owner, _ = await login_for_community_test(client, 401)
+            monkeypatch.setattr(security_module.settings, "admin_api_key", "event-admin")
+            monkeypatch.setattr(security_module.settings, "callback_api_key", "event-general")
+            created = await client.post(
+                "/api/v1/communities", headers=owner, json={"name": "Мониторинг"}
+            )
+            servers = f"/api/v1/communities/{created.json()['id']}/servers"
+            registered = await client.post(
+                servers, headers=owner, json={"name": "Сервер", "host": "example.com", "port": 4444}
+            )
+            server_id = registered.json()["id"]
+            incoming = "/api/v1/callbacks/server-status"
+            generic = {"X-Callback-Key": "event-general"}
+            admin = {"X-Admin-Key": "event-admin"}
+            sender = {"X-Callback-Key": "event-status"}
+            observed = datetime.now(UTC) - timedelta(minutes=1)
+            payload = {
+                "event_id": "online", "server_id": server_id,
+                "online": True, "observed_at": observed.isoformat(),
+            }
+            assert (await client.post(incoming, headers=generic, json=payload)).status_code == 401
+            monkeypatch.setattr(security_module.settings, "server_status_api_key", "event-status")
+            generic_path = "/api/v1/callbacks/events"
+            forged = {
+                "source": "server-status", "event_id": "online",
+                "event_type": "server.status", "payload": {},
+            }
+            wrong_source = await client.post(generic_path, headers=generic, json=forged)
+            assert wrong_source.status_code == 403
+            assert (await client.post(generic_path, headers=sender, json=forged)).status_code == 401
+            receipt = await client.post(incoming, headers=sender, json=payload)
+            duplicate = await client.post(incoming, headers=sender, json=payload)
+            assert receipt.status_code == duplicate.status_code == 200
+            assert receipt.json()["event"]["processing_state"] == "pending"
+            assert duplicate.json()["duplicate"] is True
+            assert (await client.get(servers, headers=owner)).json()[0]["online"] is None
+
+            process = "/api/v1/admin/callbacks/process"
+            assert (await client.post(process, headers=sender)).status_code == 401
+
+            apply_status = integration_processing.apply_server_status
+
+            async def fail_after_update(session, event):
+                assert await apply_status(session, event) == "applied"
+                await session.flush()
+                raise RuntimeError("Имитированный сбой после обновления")
+
+            with monkeypatch.context() as failure:
+                failure.setattr(integration_processing, "apply_server_status", fail_after_update)
+                failed = await client.post(process, headers=admin)
+                assert failed.status_code == 500
+            assert (await client.get(servers, headers=owner)).json()[0]["online"] is None
+            history = await client.get("/api/v1/admin/callbacks", headers=admin)
+            assert history.json()[0]["processing_state"] == "pending"
+
+            results = await asyncio.gather(*(client.post(process, headers=admin) for _ in range(2)))
+            assert all(response.status_code == 200 for response in results)
+            assert sum(response.json()["applied"] for response in results) == 1
+            assert (await client.get(servers, headers=owner)).json()[0]["online"] is True
+
+            older = payload | {
+                "event_id": "old-offline", "online": False,
+                "observed_at": (observed - timedelta(seconds=1)).isoformat(),
+            }
+            invalid = payload | {"event_id": "unknown-server", "server_id": str(uuid4())}
+            assert (await client.post(incoming, headers=sender, json=older)).status_code == 200
+            assert (await client.post(incoming, headers=sender, json=invalid)).status_code == 200
+            result = await client.post(process, headers=admin)
+            assert result.json() == {"applied": 0, "ignored": 1, "rejected": 1}
+            assert (await client.get(servers, headers=owner)).json()[0]["online"] is True
+            result = await client.post(process, headers=admin)
+            assert result.json() == {"applied": 0, "ignored": 0, "rejected": 0}
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 
