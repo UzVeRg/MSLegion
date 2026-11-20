@@ -51,3 +51,10 @@
 - Операция — добавление
 - Текст пункта — классы предметных ошибок размещаются в exceptions.py модуля users или integrations. Базовый AppError и преобразование исключений в HTTP-ответ находятся в ядре.
 - Источник — `backend/app/core/exceptions.py`, `backend/app/modules/users/exceptions.py` и `backend/app/modules/integrations/exceptions.py`.
+
+
+## 2026-11-20 — D005 — NAV-07
+
+- Операция — добавление
+- Текст пункта — из backend запускай `python -m app`, при разработке можно добавить --reload. Точка входа читает APP_HOST и APP_PORT, на Windows задаёт SelectorEventLoop для Psycopg. Сам объект ASGI остаётся в app.main:app.
+- Источник — `backend/app/__main__.py`, `docs/team/development/local-setup.md`.

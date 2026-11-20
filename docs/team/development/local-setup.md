@@ -33,8 +33,10 @@
 ```powershell
 Set-Location backend
 ..\.venv\Scripts\python.exe -m alembic upgrade head
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+..\.venv\Scripts\python.exe -m app --reload
 ```
+
+Команда `python -m app` читает `APP_HOST` и `APP_PORT` из настроек проекта. Уберите `--reload` для обычного запуска. В обоих режимах на Windows приложение выбирает цикл событий, поддерживаемый асинхронным Psycopg. Ниже приведены адреса по умолчанию.
 
 - Готовность приложения и базы проверяет [GET /ready](http://127.0.0.1:8000/ready).
 - Маршруты можно проверять в [интерактивной документации API](http://127.0.0.1:8000/docs).

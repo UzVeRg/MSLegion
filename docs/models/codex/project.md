@@ -40,3 +40,10 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — добавление
 - Текст пункта — запись пользователей и приём событий используют целевой ON CONFLICT PostgreSQL в транзакции сервиса. При повторе ключа (source, event_id) тот же тип и равное JSONB-содержимое дают сохранённое событие с duplicate=true. Другое содержимое или тип дают HTTP 409. Списки упорядочены по времени и UUID.
 - Источник — репозитории и сервисы в `backend/app/modules/users/` и `backend/app/modules/integrations/`, `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D004 — PROJ-06
+
+- Операция — добавление
+- Текст пункта — frontend/package.json содержит имя и признак private. Код Mini App, зависимости Vue и сборка ещё не добавлены. Для запуска API в Windows используется фабрика цикла событий Uvicorn, нижняя граница версии сервера — 0.38.
+- Источник — `frontend/package.json`, `backend/app/__main__.py` и `backend/pyproject.toml`.
