@@ -135,3 +135,10 @@
 - Операция — добавление
 - Текст пункта — конфигурация HTTPS-стенда находится в `compose.staging.yml`, `deploy/staging/Caddyfile`, `backend/Dockerfile` и `.env.staging.example`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Compose применяет миграции при запуске API и проверяет /ready перед запуском Caddy. Порядок запуска, настройки кнопки Telegram и восстановления отдельной БД — в командном руководстве.
 - Источник — указанные файлы и `docs/team/development/staging.md`.
+
+
+## 2026-11-20 — D017 — NAV-14
+
+- Операция — добавление
+- Текст пункта — модуль сообществ находится в `backend/app/modules/communities/`. Маршруты подключены в `backend/app/api/router.py`, модели зарегистрированы в `backend/alembic/env.py`. Подробности и сценарии проверок смотри в [communities.md](communities.md).
+- Источник — указанные исходники, миграция `20261120_0005` и `docs/team/reference/api.md`.

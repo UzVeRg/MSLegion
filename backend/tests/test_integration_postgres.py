@@ -33,6 +33,7 @@ from app.modules.auth.telegram import InvalidTelegramInitData
 from app.modules.users.exceptions import UserTelegramUnconfirmedError
 
 settings = get_settings()
+COMMUNITY_TEST_BOT_TOKEN = "123456:team-test"
 
 pytestmark = [
     pytest.mark.integration,
@@ -85,7 +86,7 @@ def migrate_and_check(connection: Connection) -> None:
 def downgrade_to_base(connection: Connection) -> None:
     command.downgrade(migration_config(connection), "base")
     assert set(inspect(connection).get_table_names()).isdisjoint(
-        {"users", "integration_events", "user_sessions"}
+        {"users", "integration_events", "user_sessions", "communities", "community_memberships"}
     )
 
 
@@ -200,6 +201,83 @@ def signed_telegram_data(telegram_id: int, *, bot_token: str, now: int) -> str:
     secret = hmac.digest(b"WebAppData", bot_token.encode(), "sha256")
     signature = hmac.digest(secret, f"auth_date={now}\nuser={user}".encode(), "sha256")
     return urlencode({"user": user, "auth_date": now, "hash": signature.hex()})
+
+
+@asynccontextmanager
+async def migrated_telegram_client(monkeypatch) -> AsyncIterator[AsyncClient]:
+    async with isolated_schema() as engine:
+        async with engine.begin() as connection:
+            await connection.run_sync(migrate_and_check)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+
+        async def override_session() -> AsyncIterator[AsyncSession]:
+            async with factory() as session:
+                yield session
+
+        monkeypatch.setitem(app.dependency_overrides, get_session, override_session)
+        monkeypatch.setitem(
+            app.dependency_overrides,
+            get_settings,
+            lambda: settings.model_copy(
+                update={"telegram_bot_token": SecretStr(COMMUNITY_TEST_BOT_TOKEN)}
+            ),
+        )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            yield client
+
+
+async def login_for_community_test(
+    client: AsyncClient, telegram_id: int
+) -> tuple[dict[str, str], str]:
+    data = signed_telegram_data(
+        telegram_id, bot_token=COMMUNITY_TEST_BOT_TOKEN, now=int(datetime.now(UTC).timestamp())
+    )
+    response = await client.post("/api/v1/auth/telegram", json={"init_data": data})
+    assert response.status_code == 200
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+    profile = await client.get("/api/v1/auth/me", headers=headers)
+    assert profile.status_code == 200
+    return headers, profile.json()["id"]
+
+
+def test_community_membership_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            owner, owner_id = await login_for_community_test(client, 101)
+            member, member_id = await login_for_community_test(client, 102)
+            path = "/api/v1/communities"
+            payload = {"name": "  Легион  "}
+            assert (await client.post(path, json=payload)).status_code == 401
+            created = await client.post(path, json=payload, headers=owner)
+            assert created.status_code == 201
+            community = created.json()
+            assert community["name"] == "Легион"
+            assert community["owner_id"] == owner_id
+
+            detail = f"{path}/{community['id']}"
+            members = f"{detail}/members"
+            member_path = f"{members}/{member_id}"
+            assert (await client.get(detail, headers=member)).status_code == 404
+            assert (await client.get(path, headers=member)).json() == []
+            assert (await client.get(path, headers=owner)).json() == [community]
+            assert (await client.put(member_path, headers=member)).status_code == 404
+            assert (await client.put(f"{members}/{uuid4()}", headers=owner)).status_code == 404
+            added = await asyncio.gather(
+                *(client.put(member_path, headers=owner) for _ in range(2))
+            )
+            assert [response.status_code for response in added] == [204, 204]
+            assert (await client.get(members, headers=owner)).json() == [{"user_id": member_id}]
+            assert (await client.get(members, headers=member)).status_code == 403
+            assert (await client.get(detail, headers=member)).json() == community
+            assert (await client.get(path, headers=member)).json() == [community]
+            assert (await client.delete(member_path, headers=member)).status_code == 403
+            assert (await client.delete(f"{members}/{owner_id}", headers=owner)).status_code == 409
+            assert (await client.delete(member_path, headers=owner)).status_code == 204
+            assert (await client.delete(member_path, headers=owner)).status_code == 204
+            assert (await client.get(detail, headers=member)).status_code == 404
+            assert (await client.get(path, headers=member)).json() == []
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 
 
 def test_telegram_identity_binding_with_real_postgres(monkeypatch) -> None:

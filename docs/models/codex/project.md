@@ -159,3 +159,17 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL, Alembic, Vue 3, TypeScript и Vite. P0 и P1.1 завершены. P1.2: локально проверен HTTPS-стенд Compose с Caddy, дальше требуется публичный DNS-адрес и запуск в Telegram через настроенного бота. P1.3: локально проверены миграции, готовность API и восстановление БД с контрольными данными, перед публичным выпуском требуется повторить проверки на целевом стенде. Платежи, экономика и выделение сервисов отложены.
 - Источник — `compose.staging.yml`, `docs/team/development/staging.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D021 — PROJ-11
+
+- Операция — добавление
+- Текст пункта — первый серверный сценарий P1.4 реализует закрытые сообщества и их состав. Владелец определяется при создании и управляет членством. Действующая сессия даёт доступ к своим сообществам. Регистрация серверов следует за этой моделью доступа.
+- Источник — `backend/app/modules/communities/`, `docs/team/reference/api.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D022 — PROJ-04
+
+- Операция — замена
+- Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities и community_memberships через сессию запроса. Административный статус получает счётчики пользователей и событий в переданной сессии и при ошибке базы возвращает unavailable с пустыми счётчиками.
+- Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
