@@ -128,3 +128,10 @@
 - Операция — замена
 - Текст пункта — CI backend определён в `.github/workflows/backend.yml`. На push и pull request запускаются Ruff и весь pytest с PostgreSQL 17 для всех поддерживаемых минорных версий Python. Фикстура асинхронного HTTP-клиента быстрых тестов находится в `backend/tests/conftest.py`. Mini App проверяет `.github/workflows/frontend.yml` через npm ci, Vitest и сборку с проверкой типов.
 - Источник — оба workflow и `docs/team/development/testing.md`.
+
+
+## 2026-11-20 — D016 — NAV-13
+
+- Операция — добавление
+- Текст пункта — конфигурация HTTPS-стенда находится в `compose.staging.yml`, `deploy/staging/Caddyfile`, `backend/Dockerfile` и `.env.staging.example`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Compose применяет миграции при запуске API и проверяет /ready перед запуском Caddy. Порядок запуска, настройки кнопки Telegram и восстановления отдельной БД — в командном руководстве.
+- Источник — указанные файлы и `docs/team/development/staging.md`.

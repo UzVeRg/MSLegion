@@ -11,6 +11,7 @@
 | Пользовательский интерфейс | Vue 3, TypeScript, Vite и Telegram Mini App API |
 | Разработка и проверка | pytest, pytest-asyncio, HTTPX для тестов API и Ruff |
 | Локальная инфраструктура | Docker Compose для рабочей и отдельной тестовой базы PostgreSQL |
+| Тестовое развёртывание | Docker Compose и Caddy для раздачи Mini App и проксирования API по HTTPS |
 
 Диапазоны версий и группы зависимостей определены в [`backend/pyproject.toml`](../../../backend/pyproject.toml). Контейнеры описаны в [`docker-compose.yml`](../../../docker-compose.yml). Параметры конфигурации перечислены в [`.env.example`](../../../.env.example).
 
@@ -20,7 +21,6 @@
 | --- | --- |
 | Telegram-бот | aiogram 3 для Telegram-адаптера |
 | Внешние HTTP-запросы | `HTTPX AsyncClient`, когда появится исходящая интеграция |
-| Развёртывание | Caddy или nginx в качестве обратного прокси, выбор при подготовке развёртывания |
 | Кэш и фоновые задачи | Redis и Taskiq при появлении конкретных требований |
 | Обновления в реальном времени и медиа | WebSocket для подходящего сценария и S3-совместимое хранилище при необходимости |
 

@@ -1,0 +1,17 @@
+{$STAGING_SITE_ADDRESS} {
+	encode zstd gzip
+	header {
+		Referrer-Policy no-referrer
+		X-Content-Type-Options nosniff
+	}
+
+	@backend path /api/* /health /ready
+	handle @backend {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		file_server
+	}
+}

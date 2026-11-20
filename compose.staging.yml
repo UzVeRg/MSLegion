@@ -1,0 +1,59 @@
+name: mslegion-staging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mslegion
+      POSTGRES_DB: mslegion_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD для стенда}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mslegion", "-d", "mslegion_staging"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./backend
+    environment:
+      APP_ENV: staging
+      APP_HOST: 0.0.0.0
+      DATABASE_URL: postgresql+psycopg://mslegion:${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD для стенда}@postgres:5432/mslegion_staging
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      CALLBACK_API_KEY: ${CALLBACK_API_KEY:-}
+    command: ["sh", "-ec", "alembic upgrade head && exec python -m app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/ready', timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    image: caddy:2-alpine
+    environment:
+      STAGING_SITE_ADDRESS: ${STAGING_SITE_ADDRESS:-localhost}
+    ports:
+      - "${STAGING_BIND_ADDRESS:-127.0.0.1}:${STAGING_HTTP_PORT:-80}:80"
+      - "${STAGING_BIND_ADDRESS:-127.0.0.1}:${STAGING_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/staging/Caddyfile:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: ./frontend/dist
+        target: /srv
+        read_only: true
+        bind:
+          create_host_path: false
+      - caddy_data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  caddy_data:

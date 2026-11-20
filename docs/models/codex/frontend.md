@@ -7,3 +7,10 @@
 - Состояния входа, профиля, истечения сессии и выхода — `frontend/src/App.vue`. HTTP-запросы — `frontend/src/api.ts`.
 - Сборка, тесты и прокси разработки — `frontend/package.json` и `frontend/vite.config.ts`. При развёртывании раздавайте `frontend/dist` и проксируйте `/api` с того же адреса.
 - Проверки — `frontend/src/App.test.ts` и `.github/workflows/frontend.yml`. Команды запуска описаны в `docs/team/development/local-setup.md` и `docs/team/development/testing.md`.
+
+
+## 2026-11-20 — D001 — FRONT-02
+
+- Операция — добавление
+- Текст пункта — на HTTPS-стенде Caddy раздаёт frontend/dist и проксирует /api с того же адреса. Адрес стенда и настройки бота описаны в командном руководстве. Проверка публичного запуска в клиенте Telegram ещё впереди.
+- Источник — `deploy/staging/Caddyfile`, `compose.staging.yml` и `docs/team/development/staging.md`.
