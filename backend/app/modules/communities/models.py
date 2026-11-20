@@ -1,7 +1,17 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base
@@ -41,3 +51,28 @@ class CommunityServer(Base):
     online: Mapped[bool | None]
     status_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status_event_id: Mapped[UUID | None]
+
+
+MAX_POST_IMAGE_BYTES = 2_097_152
+POST_IMAGE_CONSTRAINT = (
+    "(image IS NULL AND image_type IS NULL) OR "
+    "(image IS NOT NULL AND image_type IS NOT NULL "
+    f"AND octet_length(image) BETWEEN 1 AND {MAX_POST_IMAGE_BYTES} "
+    "AND image_type IN ('image/png', 'image/jpeg', 'image/webp'))"
+)
+
+
+class CommunityPost(Base):
+    __tablename__ = "community_posts"
+    __table_args__ = (
+        Index("ix_community_posts_date", "community_id", "created_at", "id"),
+        CheckConstraint(POST_IMAGE_CONSTRAINT, name="ck_community_posts_image"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    community_id: Mapped[UUID] = mapped_column(ForeignKey("communities.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(128))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    image: Mapped[bytes | None] = mapped_column(LargeBinary)
+    image_type: Mapped[str | None] = mapped_column(String(16))

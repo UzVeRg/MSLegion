@@ -29,3 +29,33 @@ class CommunityServerNotFoundError(AppError):
     status_code = 404
     code = "community_server_not_found"
     default_message = "Сервер в этом сообществе не найден"
+
+
+class CommunityPostNotFoundError(AppError):
+    status_code = 404
+    code = "community_post_not_found"
+    default_message = "Публикация в этом сообществе не найдена"
+
+
+class CommunityPostImageNotFoundError(AppError):
+    status_code = 404
+    code = "community_post_image_not_found"
+    default_message = "Изображение публикации не найдено"
+
+
+class CommunityPostTooLargeError(AppError):
+    status_code = 413
+    code = "community_post_too_large"
+    default_message = "Размер запроса публикации превышает 128 КиБ"
+
+
+class CommunityPostImageTooLargeError(AppError):
+    status_code = 413
+    code = "community_post_image_too_large"
+    default_message = "Размер изображения превышает 2 МиБ"
+
+
+class CommunityPostImageTypeError(AppError):
+    status_code = 415
+    code = "community_post_image_type"
+    default_message = "Поддерживаются изображения PNG, JPEG и WebP"

@@ -9,7 +9,7 @@ from app.modules.communities.models import Community, CommunityMembership, Commu
 from app.modules.communities.schemas import CommunityServerCreate, CommunityStatistics
 
 
-def _visible_to(user_id: UUID) -> ColumnElement[bool]:
+def visible_to(user_id: UUID) -> ColumnElement[bool]:
     membership = (
         select(CommunityMembership.community_id)
         .where(CommunityMembership.community_id == Community.id)
@@ -24,7 +24,7 @@ async def list_visible_communities(
 ) -> list[Community]:
     query = (
         select(Community)
-        .where(_visible_to(user_id))
+        .where(visible_to(user_id))
         .order_by(Community.id)
         .offset(offset)
         .limit(limit)
@@ -71,7 +71,7 @@ async def list_visible_servers(
     query = (
         select(Community.id, server)
         .outerjoin(server, server.community_id == Community.id)
-        .where(Community.id == community_id, _visible_to(user_id))
+        .where(Community.id == community_id, visible_to(user_id))
         .order_by(server.id)
     )
     rows = (await session.execute(query)).all()
@@ -124,7 +124,7 @@ async def get_visible_statistics(
         select(members.label("members"), *servers.c)
         .select_from(Community)
         .join(servers, true())
-        .where(Community.id == community_id, _visible_to(user_id))
+        .where(Community.id == community_id, visible_to(user_id))
     )
     row = (await session.execute(query)).mappings().one_or_none()
     return CommunityStatistics.model_validate(row) if row is not None else None

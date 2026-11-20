@@ -69,3 +69,16 @@ class CommunityStatistics(BaseModel):
     online: int
     offline: int
     unobserved: int
+
+
+class CommunityPostCreate(BaseModel):
+    title: DisplayName
+    body: Annotated[
+        DatabaseText, StringConstraints(strip_whitespace=True, min_length=1, max_length=8192)
+    ]
+
+
+class CommunityPostRead(CommunityPostCreate):
+    id: UUID
+    created_at: datetime
+    has_image: bool

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hmac
 import json
 from collections.abc import AsyncIterator
@@ -89,7 +90,7 @@ def downgrade_to_base(connection: Connection) -> None:
     assert set(inspect(connection).get_table_names()).isdisjoint(
         {
             "users", "integration_events", "user_sessions", "communities",
-            "community_memberships", "community_servers", "domain_events",
+            "community_memberships", "community_servers", "domain_events", "community_posts",
         }
     )
 
@@ -458,6 +459,70 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
                 "pending": 0, "applied": 1, "ignored": 1, "rejected": 1,
                 "oldest_pending_at": None,
             }
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            owner, _ = await login_for_community_test(client, 501)
+            member, member_id = await login_for_community_test(client, 502)
+            outsider, _ = await login_for_community_test(client, 503)
+            root = "/api/v1/communities"
+            created = await client.post(root, headers=owner, json={"name": "Гайды"})
+            assert created.status_code == 201
+            detail = f"{root}/{created.json()['id']}"
+            member_path = f"{detail}/members/{member_id}"
+            assert (await client.put(member_path, headers=owner)).status_code == 204
+            posts = f"{detail}/posts"
+            document = {"title": "Первый гайд", "body": "Текст руководства"}
+            assert (await client.get(posts, headers=outsider)).status_code == 404
+            assert (await client.post(posts, headers=member, json=document)).status_code == 403
+
+            async def oversized_post():
+                yield b"x" * 131_072
+                yield b"x"
+
+            assert (await client.post(posts, content=oversized_post())).status_code == 401
+            oversized = await client.post(posts, headers=owner, content=oversized_post())
+            assert oversized.status_code == 413
+            malformed = await client.post(posts, headers=owner, content=b"{")
+            assert malformed.status_code == 422
+
+            published = await client.post(posts, headers=owner, json=document)
+            assert published.status_code == 201
+            post = published.json()
+            assert post["has_image"] is False
+            post_path = f"{posts}/{post['id']}"
+            image_path = f"{post_path}/image"
+            assert (await client.get(posts, headers=member)).json() == [post]
+            assert (await client.get(image_path, headers=member)).status_code == 404
+
+            png = base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
+                "/x8AAwMCAO+a1eAAAAAASUVORK5CYII="
+            )
+            assert (await client.put(image_path, headers=member, content=png)).status_code == 403
+            unsupported = await client.put(image_path, headers=owner, content=b"<html>")
+            assert unsupported.status_code == 415
+            too_large = await client.put(image_path, headers=owner, content=b"x" * 2_097_153)
+            assert too_large.status_code == 413
+            assert (await client.put(image_path, headers=owner, content=png)).status_code == 204
+            assert (await client.get(posts, headers=member)).json() == [post | {"has_image": True}]
+            downloaded = await client.get(image_path, headers=member)
+            assert downloaded.content == png
+            assert downloaded.headers["content-type"] == "image/png"
+            assert downloaded.headers["cache-control"] == "private, no-store"
+            assert downloaded.headers["x-content-type-options"] == "nosniff"
+            assert downloaded.headers["content-disposition"].startswith("attachment;")
+            assert (await client.get(image_path, headers=outsider)).status_code == 404
+
+            assert (await client.delete(member_path, headers=owner)).status_code == 204
+            assert (await client.get(image_path, headers=member)).status_code == 404
+            assert (await client.delete(post_path, headers=owner)).status_code == 204
+            assert (await client.get(posts, headers=owner)).json() == []
+            assert (await client.get(image_path, headers=owner)).status_code == 404
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 

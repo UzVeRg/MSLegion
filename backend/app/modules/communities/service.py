@@ -30,7 +30,7 @@ async def _require_visible(
     return community
 
 
-async def _require_owner(
+async def require_owner(
     session: AsyncSession, actor_id: UUID, community_id: UUID, *, for_update: bool = False
 ) -> Community:
     community = await _require_visible(session, actor_id, community_id, for_update=for_update)
@@ -71,7 +71,7 @@ async def list_members(
     session: AsyncSession, token_hash: bytes, community_id: UUID, offset: int, limit: int
 ) -> list[CommunityMembership]:
     actor = await get_own_profile(session, token_hash)
-    await _require_owner(session, actor.id, community_id)
+    await require_owner(session, actor.id, community_id)
     return await repository.list_members(session, community_id, offset, limit)
 
 
@@ -80,7 +80,7 @@ async def add_member(
 ) -> None:
     async with session.begin():
         actor = await get_own_profile(session, token_hash)
-        community = await _require_owner(session, actor.id, community_id, for_update=True)
+        community = await require_owner(session, actor.id, community_id, for_update=True)
         if member_id == community.owner_id:
             return
         await get_user(session, member_id)
@@ -99,7 +99,7 @@ async def remove_member(
 ) -> None:
     async with session.begin():
         actor = await get_own_profile(session, token_hash)
-        community = await _require_owner(session, actor.id, community_id, for_update=True)
+        community = await require_owner(session, actor.id, community_id, for_update=True)
         if member_id == community.owner_id:
             raise CommunityOwnerRemovalError
         membership = await session.get(CommunityMembership, (community_id, member_id))
@@ -129,7 +129,7 @@ async def register_server(
 ) -> CommunityServer:
     async with session.begin():
         actor = await get_own_profile(session, token_hash)
-        await _require_owner(session, actor.id, community_id)
+        await require_owner(session, actor.id, community_id)
         server = await repository.insert_server(session, community_id, payload)
         if server is None:
             raise CommunityServerConflictError
@@ -148,7 +148,7 @@ async def remove_server(
 ) -> None:
     async with session.begin():
         actor = await get_own_profile(session, token_hash)
-        await _require_owner(session, actor.id, community_id)
+        await require_owner(session, actor.id, community_id)
         if not await repository.delete_server(session, community_id, server_id):
             raise CommunityServerNotFoundError
         record_event(

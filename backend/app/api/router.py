@@ -10,7 +10,13 @@ from app.core.exceptions import error_responses
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.models import UserSession
 from app.modules.auth.router import router as auth_router
-from app.modules.communities.models import Community, CommunityMembership, CommunityServer
+from app.modules.communities.content_router import router as content_router
+from app.modules.communities.models import (
+    Community,
+    CommunityMembership,
+    CommunityPost,
+    CommunityServer,
+)
 from app.modules.communities.router import router as communities_router
 from app.modules.domain_events.models import DomainEvent
 from app.modules.domain_events.router import router as domain_events_router
@@ -24,6 +30,7 @@ api_router.include_router(users_router, prefix="/api/v1")
 api_router.include_router(admin_router, prefix="/api/v1")
 api_router.include_router(auth_router, prefix="/api/v1")
 api_router.include_router(communities_router, prefix="/api/v1")
+api_router.include_router(content_router, prefix="/api/v1")
 api_router.include_router(domain_events_router, prefix="/api/v1")
 api_router.include_router(integrations_router, prefix="/api/v1")
 
@@ -52,6 +59,7 @@ async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> d
             Community,
             CommunityMembership,
             CommunityServer,
+            CommunityPost,
             DomainEvent,
         ):
             await session.execute(select(model).limit(0))

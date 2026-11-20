@@ -229,3 +229,17 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities, community_memberships, community_servers и domain_events. Административный статус возвращает счётчики пользователей и событий, а мониторинг обработки отдельно возвращает состояния и возраст очереди.
 - Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D031 — PROJ-13
+
+- Операция — замена
+- Текст пункта — P2: изменения сообщества, состава, серверов, публикаций и применённые наблюдения записываются во внутренний журнал той же транзакцией. Участники получают текущую статистику своего сообщества, администратор — историю и показатели очереди. Владелец добавляет публикации с изображениями в PostgreSQL. Исторические отчёты, игровые достижения и рейтинг игроков остаются дальнейшими шагами.
+- Источник — `backend/app/modules/domain_events/`, `backend/app/modules/communities/`, `backend/app/modules/integrations/` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D032 — PROJ-04
+
+- Операция — замена
+- Текст пункта — /health проверяет процесс, /ready проверяет доступ к столбцам ORM таблиц users, user_sessions, integration_events, communities, community_memberships, community_servers, community_posts и domain_events. Административный статус возвращает счётчики пользователей и событий, а мониторинг обработки отдельно возвращает состояния и время старейшей ожидающей записи.
+- Источник — `backend/app/api/router.py`, `backend/app/modules/admin/service.py` и `docs/team/reference/api.md`.
