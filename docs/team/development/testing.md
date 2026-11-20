@@ -56,3 +56,15 @@ try {
 ```
 
 При push и pull request [GitHub Actions](../../../.github/workflows/backend.yml) повторяет эти проверки на Linux с отдельным сервисом PostgreSQL 17 для каждой версии Python 3.12, 3.13 и 3.14.
+
+## Тестирование Mini App
+
+Из каталога `frontend` с Node.js 24.15 или новее в ветке 24 выполните команды ниже.
+
+```powershell
+npm ci
+npm test
+npm run build
+```
+
+Vitest проверяет пользовательские состояния с имитацией Telegram WebApp и HTTP-ответов. Проверка типов и сборка выполняются отдельно. [GitHub Actions](../../../.github/workflows/frontend.yml) запускает оба шага при push и pull request. Проверка в настоящем клиенте Telegram проходит после подготовки HTTPS-стенда.

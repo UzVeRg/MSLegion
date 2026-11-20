@@ -121,3 +121,10 @@
 - Операция — замена
 - Текст пункта — проверки ключей X-Admin-Key и X-Callback-Key находятся в `backend/app/core/security.py`, а схема пользовательского Bearer и её зависимость — в `backend/app/modules/auth/router.py`. Раздельные ключи проверяет `backend/tests/test_access.py`. Сценарий сессий в `backend/tests/test_integration_postgres.py` предъявляет действующую пользовательскую сессию каждому служебному маршруту и ожидает отказ.
 - Источник — указанные исходники и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D015 — NAV-08
+
+- Операция — замена
+- Текст пункта — CI backend определён в `.github/workflows/backend.yml`. На push и pull request запускаются Ruff и весь pytest с PostgreSQL 17 для всех поддерживаемых минорных версий Python. Фикстура асинхронного HTTP-клиента быстрых тестов находится в `backend/tests/conftest.py`. Mini App проверяет `.github/workflows/frontend.yml` через npm ci, Vitest и сборку с проверкой типов.
+- Источник — оба workflow и `docs/team/development/testing.md`.

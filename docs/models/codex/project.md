@@ -131,3 +131,24 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL и Alembic. P0 завершён: работают привязка Telegram к UUID, отзываемые пользовательские сессии, собственный профиль и отдельные служебные полномочия. Ближайший шаг P1.1 — оболочка Mini App на Vue 3, TypeScript и Vite. HTTPS-стенд и бот предшествуют проверке в Telegram, проверка восстановления БД — первому публичному выпуску. Платежи, экономика и выделение сервисов отложены.
 - Источник — `backend/pyproject.toml`, `backend/tests/test_integration_postgres.py` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D017 — PROJ-06
+
+- Операция — замена
+- Текст пункта — Mini App на Vue 3, TypeScript и Vite реализован в frontend. При запуске из Telegram загружает собственный профиль, поддерживает истечение сессии, повторный вход и выход. HTTP-запросы идут на тот же адрес, что и страница. Код бота и проверка в Telegram остаются в P1.2. Для локального запуска API на Windows используется фабрика цикла событий Uvicorn, нижняя граница версии сервера — 0.38.
+- Источник — `frontend/package.json`, `frontend/src/App.vue`, `frontend/src/api.ts`, `backend/app/__main__.py` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D018 — PROJ-03
+
+- Операция — замена
+- Текст пункта — основной стек: Python 3.12–3.14, FastAPI, асинхронные SQLAlchemy и Psycopg, PostgreSQL, Alembic, Vue 3, TypeScript и Vite. P0 и P1.1 завершены. Ближайший шаг P1.2 — HTTPS-стенд и настройка запуска Mini App через бота с проверкой реального сценария. Проверка восстановления БД предшествует первому публичному выпуску. Платежи, экономика и выделение сервисов отложены.
+- Источник — `backend/pyproject.toml`, `frontend/package.json`, `frontend/src/App.vue` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D019 — PROJ-02
+
+- Операция — замена
+- Текст пункта — backend предоставляет публичные проверки /health и /ready. Создание, чтение и подтверждение привязки пользователей, административный статус и история событий требуют X-Admin-Key. Приём события требует отдельный X-Callback-Key. Незаданный или старый шаблонный ключ отключает соответствующий доступ. HTTP-вход через Telegram выдаёт сессию, по ней доступны собственный профиль и выход. Mini App подключён к этим маршрутам, настройка бота и проверка в клиенте Telegram впереди.
+- Источник — `backend/app/core/security.py`, `backend/app/modules/auth/router.py`, `frontend/src/api.ts` и `docs/team/reference/api.md`.
