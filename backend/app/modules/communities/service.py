@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +13,11 @@ from app.modules.communities.exceptions import (
     CommunityServerNotFoundError,
 )
 from app.modules.communities.models import Community, CommunityMembership, CommunityServer
-from app.modules.communities.schemas import CommunityServerCreate, CommunityStatistics
+from app.modules.communities.schemas import (
+    CommunityActivityReport,
+    CommunityServerCreate,
+    CommunityStatistics,
+)
 from app.modules.domain_events.repository import record_event
 from app.modules.users.service import get_user
 
@@ -168,3 +173,17 @@ async def get_statistics(
     if statistics is None:
         raise CommunityNotFoundError
     return statistics
+
+
+async def get_activity(
+    session: AsyncSession, token_hash: bytes, community_id: UUID, days: int
+) -> CommunityActivityReport:
+    actor = await get_own_profile(session, token_hash)
+    today = datetime.now(UTC).date()
+    first = today - timedelta(days=days - 1)
+    start = datetime.combine(first, time.min, UTC)
+    end = datetime.combine(today + timedelta(days=1), time.min, UTC)
+    activity = await repository.get_visible_activity(session, actor.id, community_id, start, end)
+    if activity is None:
+        raise CommunityNotFoundError
+    return CommunityActivityReport(from_date=first, to_date=today, activity=activity)

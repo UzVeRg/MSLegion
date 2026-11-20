@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Response, status
 
 from app.core.exceptions import error_responses
 from app.core.validation import MAX_BIGINT
@@ -9,6 +9,7 @@ from app.modules.auth.router import SessionDependency, TokenHash
 from app.modules.communities import service
 from app.modules.communities.models import Community, CommunityMembership, CommunityServer
 from app.modules.communities.schemas import (
+    CommunityActivityReport,
     CommunityCreate,
     CommunityRead,
     CommunityServerCreate,
@@ -146,3 +147,19 @@ async def get_statistics(
     community_id: UUID, token_hash: TokenHash, session: SessionDependency
 ) -> CommunityStatistics:
     return await service.get_statistics(session, token_hash, community_id)
+
+
+@router.get(
+    "/{community_id}/statistics/activity",
+    responses=error_responses(404),
+    summary="Активность сообщества по дням",
+)
+async def get_activity(
+    community_id: UUID,
+    token_hash: TokenHash,
+    session: SessionDependency,
+    response: Response,
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> CommunityActivityReport:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await service.get_activity(session, token_hash, community_id, days)

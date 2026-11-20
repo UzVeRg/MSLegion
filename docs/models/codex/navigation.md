@@ -170,3 +170,10 @@
 - Операция — добавление
 - Текст пункта — публикации и изображения находятся в content_router.py, content_service.py и content_repository.py модуля communities. Миграция `20261120_0009` добавляет community_posts с двоичным полем изображения и ограничением формата и размера. В runtime-движке SQLAlchemy скрыты значения SQL-параметров.
 - Источник — указанные исходники, `backend/app/core/database.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D022 — NAV-18
+
+- Операция — добавление
+- Текст пункта — исторический отчёт сообщества использует `get_visible_activity` в communities/repository.py и записи domain_events. Диапазон UTC рассчитывается в communities/service.py. Доступ и агрегаты читаются одним SQL-запросом.
+- Источник — `backend/app/modules/communities/`, `backend/app/modules/domain_events/models.py` и `docs/team/reference/api.md`.

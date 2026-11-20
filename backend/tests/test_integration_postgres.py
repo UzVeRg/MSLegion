@@ -494,6 +494,17 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert published.status_code == 201
             post = published.json()
             assert post["has_image"] is False
+            activity_path = f"{detail}/statistics/activity"
+            assert (await client.get(activity_path, headers=outsider)).status_code == 404
+            activity = await client.get(activity_path, headers=member, params={"days": 2})
+            assert activity.status_code == 200
+            report = activity.json()
+            assert datetime.fromisoformat(report["to_date"]) - datetime.fromisoformat(
+                report["from_date"]
+            ) == timedelta(days=1)
+            assert {item["event_type"]: item["count"] for item in report["activity"]} == {
+                "community.created": 1, "community.member.added": 1, "community.post.published": 1,
+            }
             post_path = f"{posts}/{post['id']}"
             image_path = f"{post_path}/image"
             assert (await client.get(posts, headers=member)).json() == [post]

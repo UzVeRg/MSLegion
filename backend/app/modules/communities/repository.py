@@ -1,12 +1,18 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, delete, func, select, true
+from sqlalchemy import ColumnElement, Date, cast, delete, func, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.modules.communities.models import Community, CommunityMembership, CommunityServer
-from app.modules.communities.schemas import CommunityServerCreate, CommunityStatistics
+from app.modules.communities.schemas import (
+    CommunityActivityCount,
+    CommunityServerCreate,
+    CommunityStatistics,
+)
+from app.modules.domain_events.models import DomainEvent
 
 
 def visible_to(user_id: UUID) -> ColumnElement[bool]:
@@ -128,3 +134,30 @@ async def get_visible_statistics(
     )
     row = (await session.execute(query)).mappings().one_or_none()
     return CommunityStatistics.model_validate(row) if row is not None else None
+
+
+async def get_visible_activity(
+    session: AsyncSession, user_id: UUID, community_id: UUID, start: datetime, end: datetime
+) -> list[CommunityActivityCount] | None:
+    day = cast(func.timezone("UTC", DomainEvent.occurred_at), Date).label("day")
+    counts = (
+        select(day, DomainEvent.event_type, func.count().label("count"))
+        .where(
+            DomainEvent.community_id == community_id,
+            DomainEvent.occurred_at >= start,
+            DomainEvent.occurred_at < end,
+        )
+        .group_by(day, DomainEvent.event_type)
+        .subquery()
+    )
+    query = (
+        select(*counts.c)
+        .select_from(Community)
+        .outerjoin(counts, true())
+        .where(Community.id == community_id, visible_to(user_id))
+        .order_by(counts.c.day, counts.c.event_type)
+    )
+    rows = (await session.execute(query)).mappings().all()
+    if not rows:
+        return None
+    return [CommunityActivityCount.model_validate(row) for row in rows if row["day"] is not None]

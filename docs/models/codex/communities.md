@@ -42,3 +42,10 @@
 - Операция — добавление
 - Текст пункта — создание публикации ограничивает HTTP-тело 128 КиБ при потоковом чтении до разбора JSON. Изображения выдаются вложениями с запретом кеширования и определения типа по содержимому.
 - Источник — `backend/app/modules/communities/content_router.py`, `backend/app/modules/communities/content_service.py` и `backend/tests/test_integration_postgres.py`.
+
+
+## 2026-11-20 — D006 — COMM-06
+
+- Операция — добавление
+- Текст пункта — историческая статистика показывает число внутренних событий сообщества по типам и дням UTC за последние 1–90 дней. День без события соответствующего типа не создаёт строку.
+- Источник — `backend/app/modules/communities/repository.py`, `backend/app/modules/communities/service.py` и `docs/team/reference/api.md`.

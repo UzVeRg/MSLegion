@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 from ipaddress import ip_address
 from typing import Annotated
 from uuid import UUID
@@ -69,6 +69,18 @@ class CommunityStatistics(BaseModel):
     online: int
     offline: int
     unobserved: int
+
+
+class CommunityActivityCount(BaseModel):
+    day: date
+    event_type: str
+    count: int
+
+
+class CommunityActivityReport(BaseModel):
+    from_date: date
+    to_date: date
+    activity: list[CommunityActivityCount]
 
 
 class CommunityPostCreate(BaseModel):
