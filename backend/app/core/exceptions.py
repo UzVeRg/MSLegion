@@ -5,9 +5,25 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, JsonValue
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("app.errors")
+
+
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    request_id: str
+    details: JsonValue | None = None
+
+
+class ErrorEnvelope(BaseModel):
+    error: ErrorBody
+
+
+def error_responses(*codes: int) -> dict[int | str, dict[str, Any]]:
+    return {code: {"model": ErrorEnvelope} for code in codes}
 
 
 class AppError(Exception):
@@ -39,17 +55,12 @@ def build_error_response(
     details: Any | None = None,
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
-    error: dict[str, Any] = {
-        "code": code,
-        "message": message,
-        "request_id": request_id,
-    }
-    if details is not None:
-        error["details"] = details
-
+    error = ErrorBody(
+        code=code, message=message, request_id=request_id, details=jsonable_encoder(details)
+    )
     return JSONResponse(
         status_code=status_code,
-        content={"error": jsonable_encoder(error)},
+        content=ErrorEnvelope(error=error).model_dump(mode="json", exclude_none=True),
         headers=headers,
     )
 

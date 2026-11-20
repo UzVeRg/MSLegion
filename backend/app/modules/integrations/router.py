@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.exceptions import error_responses
 from app.core.security import require_admin_key, require_callback_key
 from app.core.validation import MAX_BIGINT, DatabaseText
 from app.modules.integrations import service
@@ -13,7 +14,7 @@ from app.modules.integrations.schemas import (
     IntegrationEventRead,
 )
 
-router = APIRouter(tags=["integrations"])
+router = APIRouter(tags=["integrations"], responses=error_responses(401, 422))
 
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 
@@ -21,6 +22,7 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 @router.post(
     "/callbacks/events",
     response_model=CallbackReceipt,
+    responses=error_responses(409),
     dependencies=[Depends(require_callback_key)],
 )
 async def receive_event(

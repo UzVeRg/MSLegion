@@ -5,12 +5,18 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.exceptions import error_responses
 from app.core.security import require_admin_key
 from app.core.validation import MAX_BIGINT
 from app.modules.users import service as user_service
 from app.modules.users.schemas import UserCreate, UserRead
 
-router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin_key)])
+router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+    dependencies=[Depends(require_admin_key)],
+    responses=error_responses(401, 422),
+)
 
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 
@@ -19,6 +25,7 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
     "",
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(409),
 )
 async def create_user(
     payload: UserCreate,
@@ -46,6 +53,7 @@ async def list_users(
 @router.get(
     "/{user_id}",
     response_model=UserRead,
+    responses=error_responses(404),
 )
 async def get_user(
     user_id: uuid.UUID,

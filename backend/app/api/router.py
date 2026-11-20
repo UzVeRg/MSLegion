@@ -6,13 +6,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.exceptions import error_responses
 from app.modules.admin.router import router as admin_router
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.router import router as integrations_router
 from app.modules.users.models import User
 from app.modules.users.router import router as users_router
 
-api_router = APIRouter()
+api_router = APIRouter(responses=error_responses(500))
 api_router.include_router(users_router, prefix="/api/v1")
 api_router.include_router(admin_router, prefix="/api/v1")
 api_router.include_router(integrations_router, prefix="/api/v1")
@@ -31,6 +32,7 @@ async def health() -> dict[str, str]:
     "/ready",
     tags=["system"],
     summary="Application readiness check",
+    responses=error_responses(503),
 )
 async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str, str]:
     try:

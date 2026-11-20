@@ -1,3 +1,27 @@
+import pytest
+
+
+@pytest.mark.parametrize(
+    ("path", "method", "codes"),
+    [
+        ("/ready", "get", (503,)),
+        ("/api/v1/users", "post", (401, 409, 422)),
+        ("/api/v1/users", "get", (401, 422)),
+        ("/api/v1/users/{user_id}", "get", (401, 404, 422)),
+        ("/api/v1/callbacks/events", "post", (401, 409, 422)),
+        ("/api/v1/admin/callbacks", "get", (401, 422)),
+        ("/api/v1/admin/status", "get", (401,)),
+    ],
+)
+async def test_openapi_describes_error_envelope(client, path, method, codes):
+    spec = (await client.get("/openapi.json")).json()
+    responses = spec["paths"][path][method]["responses"]
+    for code in codes:
+        schema = responses[str(code)]["content"]["application/json"]["schema"]
+        name = schema["$ref"].rsplit("/", 1)[1]
+        assert "error" in spec["components"]["schemas"][name]["required"]
+
+
 async def test_request_id_is_preserved(client) -> None:
     response = await client.get(
         "/health",

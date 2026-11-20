@@ -65,3 +65,10 @@
 - Операция — добавление
 - Текст пункта — CI backend определён в `.github/workflows/backend.yml`. На push и pull request запускаются Ruff и весь pytest с PostgreSQL 17 для всех поддерживаемых минорных версий Python. Фикстура асинхронного HTTP-клиента быстрых тестов находится в `backend/tests/conftest.py`.
 - Источник — `.github/workflows/backend.yml`, `backend/tests/conftest.py` и `docs/team/development/testing.md`.
+
+
+## 2026-11-20 — D007 — NAV-09
+
+- Операция — добавление
+- Текст пункта — /openapi.json описывает схемы ключей и ответы с ошибками. ErrorEnvelope в ядре используется и при формировании ответа, и при генерации контракта FastAPI. Соответствие спецификации проверяет test_request_context.py.
+- Источник — `backend/app/core/exceptions.py`, маршрутизаторы модулей и `backend/tests/test_request_context.py`.
