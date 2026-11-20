@@ -1,0 +1,27 @@
+services:
+  postgres:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+    environment:
+      STAGING_SITE_ADDRESS: ":80"
+    ports: !reset []
+    networks:
+      default:
+      proxy:
+        aliases:
+          - mslegion-staging-web
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+networks:
+  proxy:
+    name: ${STAGING_PROXY_NETWORK:?Задайте STAGING_PROXY_NETWORK для стенда}
+    external: true

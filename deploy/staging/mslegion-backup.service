@@ -1,0 +1,8 @@
+[Unit]
+Description=Резервное копирование PostgreSQL MSLegion
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/mslegion-staging/current/deploy/staging/backup.sh

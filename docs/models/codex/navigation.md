@@ -177,3 +177,10 @@
 - Операция — добавление
 - Текст пункта — исторический отчёт сообщества использует `get_visible_activity` в communities/repository.py и записи domain_events. Диапазон UTC рассчитывается в communities/service.py. Доступ и агрегаты читаются одним SQL-запросом.
 - Источник — `backend/app/modules/communities/`, `backend/app/modules/domain_events/models.py` и `docs/team/reference/api.md`.
+
+
+## 2026-11-20 — D023 — NAV-13
+
+- Операция — замена
+- Текст пункта — Базовый HTTPS-стенд определяют `compose.staging.yml`, `deploy/staging/Caddyfile`, `backend/Dockerfile` и `.env.staging.example`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Compose применяет миграции до запуска API. На VPS `deploy/staging/compose.proxy.yml` подключает только web к общей сети прокси и снимает публикацию портов приложения. Сценарий `update.sh` развёртывает проверенный SHA, `backup.sh` создаёт дамп PostgreSQL, а `mslegion-backup.timer` задаёт расписание. Все сценарии и юниты находятся в `deploy/staging/`.
+- Источник — указанные файлы и `docs/team/development/staging.md`.

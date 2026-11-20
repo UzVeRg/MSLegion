@@ -73,3 +73,10 @@
 - Операция — замена
 - Текст пункта — назначение проекта, реализованное состояние и принятые решения для следующих этапов смотри в [project.md](project.md). Источники backend, HTTP-контрактов, миграций, локального запуска и CI смотри в [navigation.md](navigation.md). Для Mini App открой [frontend.md](frontend.md), для сообществ и членства — [communities.md](communities.md). Решения по входу и сессиям приведены в [архитектуре](../../team/architecture/overview.md), порядок реализации и условия готовности — в [плане развития](../../team/planning/roadmap.md). Применяй дополнения в конце выбранного файла и проверяй факт по указанному источнику. Расширяй поиск при расхождении карты с исходниками. Пути в базе указаны от корня репозитория.
 - Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md`, `docs/models/codex/frontend.md`, `docs/models/codex/communities.md` и `docs/team/planning/roadmap.md`.
+
+
+## 2026-11-20 — D007 — INDEX-01
+
+- Операция — замена
+- Текст пункта — Назначение проекта, реализованное состояние и принятые решения смотри в [project.md](project.md). Исходники backend, HTTP-контрактов, миграций, локального запуска, CI и публичного стенда перечислены в [navigation.md](navigation.md). Для Mini App открой [frontend.md](frontend.md), для сообществ и членства — [communities.md](communities.md). Эксплуатация публичного стенда описана в [руководстве](../../team/development/staging.md), вход и сессии — в [архитектуре](../../team/architecture/overview.md), порядок реализации — в [плане развития](../../team/planning/roadmap.md). Применяй дополнения и проверяй факты по источникам. Пути в базе указаны от корня репозитория.
+- Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md`, `docs/team/development/staging.md` и `docs/team/planning/roadmap.md`.
