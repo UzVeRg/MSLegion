@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.parse import urlencode
 from uuid import uuid4
+from zlib import crc32
 
 import pytest
 from alembic import command
@@ -181,8 +182,13 @@ async def run_http_flow_with_real_postgres(monkeypatch, engine: AsyncEngine) -> 
         assert status.json()["users"] == status.json()["integration_events"] == 1
 
         nullable = event | {"event_id": "nullable", "payload": None}
+        callback_at_limit = json.dumps(nullable).encode().ljust(1_048_576)
         for duplicate in (False, True):
-            receipt = await client.post(path, headers=callback_headers, json=nullable)
+            receipt = await client.post(
+                path,
+                headers=callback_headers | {"Content-Type": "application/json"},
+                content=callback_at_limit,
+            )
             assert receipt.status_code == 200
             assert receipt.json()["duplicate"] is duplicate
 
@@ -489,10 +495,15 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert (await client.post(posts, content=oversized_post())).status_code == 401
             oversized = await client.post(posts, headers=owner, content=oversized_post())
             assert oversized.status_code == 413
+            assert oversized.json()["error"]["code"] == "community_post_too_large"
             malformed = await client.post(posts, headers=owner, content=b"{")
             assert malformed.status_code == 422
 
-            published = await client.post(posts, headers=owner, json=document)
+            published = await client.post(
+                posts,
+                headers=owner | {"Content-Type": "application/json"},
+                content=json.dumps(document).encode().ljust(131_072),
+            )
             assert published.status_code == 201
             post = published.json()
             assert post["has_image"] is False
@@ -521,6 +532,7 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert unsupported.status_code == 415
             too_large = await client.put(image_path, headers=owner, content=b"x" * 2_097_153)
             assert too_large.status_code == 413
+            assert too_large.json()["error"]["code"] == "community_post_image_too_large"
             assert (await client.put(image_path, headers=owner, content=png)).status_code == 204
             assert (await client.get(posts, headers=member)).json() == [post | {"has_image": True}]
             downloaded = await client.get(image_path, headers=member)
@@ -530,6 +542,30 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert downloaded.headers["x-content-type-options"] == "nosniff"
             assert downloaded.headers["content-disposition"].startswith("attachment;")
             assert (await client.get(image_path, headers=outsider)).status_code == 404
+
+            # Добавляем допустимый блок tEXt перед IEND, доводя PNG ровно до 2 МиБ.
+            text_data = b"note\0".ljust(2_097_152 - len(png) - 12)
+            chunk = b"tEXt" + text_data
+            png_at_limit = (
+                png[:-12] + len(text_data).to_bytes(4, "big") + chunk
+                + crc32(chunk).to_bytes(4, "big") + png[-12:]
+            )
+            second_session, _ = await login_for_community_test(client, 501)
+
+            async def upload_during_logout():
+                yield png_at_limit[:-1]
+                logout = await client.post("/api/v1/auth/logout", headers=second_session)
+                assert logout.status_code == 204
+                yield png_at_limit[-1:]
+
+            revoked = await client.put(
+                image_path, headers=second_session, content=upload_during_logout()
+            )
+            assert revoked.status_code == 401
+            assert (await client.get(image_path, headers=member)).content == png
+            replaced = await client.put(image_path, headers=owner, content=png_at_limit)
+            assert replaced.status_code == 204
+            assert (await client.get(image_path, headers=member)).content == png_at_limit
 
             assert (await client.delete(member_path, headers=owner)).status_code == 204
             assert (await client.get(image_path, headers=member)).status_code == 404

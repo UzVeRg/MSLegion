@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.exceptions import error_responses
+from app.core.request_body import MAX_CALLBACK_BODY_BYTES, LimitedJSONRoute
 from app.core.security import require_admin_key, require_callback_key, require_server_status_key
 from app.core.validation import MAX_BIGINT, DatabaseText
 from app.modules.integrations import processing, repository, service
@@ -17,7 +18,9 @@ from app.modules.integrations.schemas import (
     ServerStatusEventCreate,
 )
 
-router = APIRouter(tags=["integrations"], responses=error_responses(401, 422))
+router = APIRouter(
+    tags=["integrations"], route_class=LimitedJSONRoute, responses=error_responses(401, 422)
+)
 
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 
@@ -25,7 +28,8 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 @router.post(
     "/callbacks/events",
     response_model=CallbackReceipt,
-    responses=error_responses(403, 409),
+    responses=error_responses(403, 409, 413),
+    openapi_extra={"x-max-body-bytes": MAX_CALLBACK_BODY_BYTES},
     dependencies=[Depends(require_callback_key)],
 )
 async def receive_event(
@@ -42,7 +46,7 @@ async def receive_event(
 @router.post(
     "/callbacks/server-status",
     response_model=CallbackReceipt,
-    responses=error_responses(409),
+    responses=error_responses(409, 413),
     dependencies=[Depends(require_server_status_key)],
     summary="Принять наблюдение статуса сервера",
 )

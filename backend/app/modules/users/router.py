@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.exceptions import error_responses
+from app.core.request_body import LimitedJSONRoute
 from app.core.security import require_admin_key
 from app.core.validation import MAX_BIGINT
 from app.modules.users import service as user_service
@@ -14,6 +15,7 @@ from app.modules.users.schemas import UserCreate, UserRead, UserTelegramConfirma
 router = APIRouter(
     prefix="/users",
     tags=["users"],
+    route_class=LimitedJSONRoute,
     dependencies=[Depends(require_admin_key)],
     responses=error_responses(401, 422),
 )
@@ -25,7 +27,7 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
     "",
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
-    responses=error_responses(409),
+    responses=error_responses(409, 413),
 )
 async def create_user(
     payload: UserCreate,
@@ -66,7 +68,7 @@ async def get_user(
     "/{user_id}/telegram/confirmation",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Подтвердить привязку пользователя к Telegram",
-    responses=error_responses(404, 409),
+    responses=error_responses(404, 409, 413),
 )
 async def confirm_telegram_binding(
     user_id: uuid.UUID,

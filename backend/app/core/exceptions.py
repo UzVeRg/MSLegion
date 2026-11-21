@@ -88,7 +88,7 @@ async def http_error_handler(
 
     return build_error_response(
         status_code=exc.status_code,
-        code="http_error",
+        code="request_body_too_large" if exc.status_code == 413 else "http_error",
         message=message,
         request_id=get_request_id(request),
         details=details,

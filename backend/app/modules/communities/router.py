@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Response, status
 
 from app.core.exceptions import error_responses
+from app.core.request_body import LimitedJSONRoute
 from app.core.validation import MAX_BIGINT
 from app.modules.auth.router import SessionDependency, TokenHash
 from app.modules.communities import service
@@ -18,7 +19,12 @@ from app.modules.communities.schemas import (
     MembershipRead,
 )
 
-router = APIRouter(prefix="/communities", tags=["communities"], responses=error_responses(401, 422))
+router = APIRouter(
+    prefix="/communities",
+    tags=["communities"],
+    route_class=LimitedJSONRoute,
+    responses=error_responses(401, 422),
+)
 Offset = Annotated[int, Query(ge=0, le=MAX_BIGINT)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 
@@ -27,6 +33,7 @@ Limit = Annotated[int, Query(ge=1, le=100)]
     "",
     response_model=CommunityRead,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(413),
     summary="Создать сообщество",
 )
 async def create_community(
@@ -114,7 +121,7 @@ async def list_servers(
     "/{community_id}/servers",
     response_model=CommunityServerRead,
     status_code=status.HTTP_201_CREATED,
-    responses=error_responses(403, 404, 409),
+    responses=error_responses(403, 404, 409, 413),
     summary="Зарегистрировать сервер сообщества",
 )
 async def register_server(

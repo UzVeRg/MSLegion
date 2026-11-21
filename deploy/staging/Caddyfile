@@ -1,3 +1,11 @@
+(api_body_limit) {
+	vars limit_error {args[1]}
+	request_body {
+		max_size {args[0]}
+	}
+	reverse_proxy api:8000
+}
+
 {$STAGING_SITE_ADDRESS} {
 	encode zstd gzip
 	header {
@@ -5,9 +13,51 @@
 		X-Content-Type-Options nosniff
 	}
 
+	@callback {
+		method POST
+		path /api/v1/callbacks/events
+	}
+	handle @callback {
+		import api_body_limit 1048576 request_body_too_large
+	}
+
+	@image {
+		method PUT
+		path_regexp ^/api/v1/communities/[^/]+/posts/[^/]+/image$
+	}
+	handle @image {
+		import api_body_limit 2097152 community_post_image_too_large
+	}
+
+	@post {
+		method POST
+		path_regexp ^/api/v1/communities/[^/]+/posts$
+	}
+	handle @post {
+		import api_body_limit 131072 community_post_too_large
+	}
+
+	@api_write {
+		method POST PUT PATCH
+		path /api/*
+	}
+	handle @api_write {
+		import api_body_limit 131072 request_body_too_large
+	}
+
 	@backend path /api/* /health /ready
 	handle @backend {
 		reverse_proxy api:8000
+	}
+
+	map {http.request.header.X-Request-ID} {limit_request_id} {
+		~^[A-Za-z0-9._:-]{1,128}$ $0
+		default {http.request.uuid}
+	}
+	handle_errors 413 {
+		header Content-Type application/json
+		header X-Request-ID {limit_request_id}
+		respond `{"error":{"code":"{http.vars.limit_error}","message":"Превышен допустимый размер тела запроса","request_id":"{limit_request_id}"}}` 413
 	}
 
 	handle {

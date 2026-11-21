@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
 from app.core.exceptions import error_responses
+from app.core.request_body import LimitedJSONRoute
 from app.modules.auth import service
 from app.modules.auth.exceptions import InvalidSessionError, TelegramLoginUnavailableError
 from app.modules.auth.schemas import (
@@ -17,7 +18,9 @@ from app.modules.auth.schemas import (
 )
 from app.modules.users.models import User
 
-router = APIRouter(prefix="/auth", tags=["auth"], responses=error_responses(401))
+router = APIRouter(
+    prefix="/auth", tags=["auth"], route_class=LimitedJSONRoute, responses=error_responses(401)
+)
 session_bearer = HTTPBearer(scheme_name="UserSession", auto_error=False)
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 
@@ -36,7 +39,7 @@ TokenHash = Annotated[bytes, Depends(require_session_token_hash)]
 @router.post(
     "/telegram",
     summary="Войти через Telegram",
-    responses=error_responses(403, 422, 503),
+    responses=error_responses(403, 413, 422, 503),
 )
 async def login_with_telegram(
     payload: TelegramLogin,
@@ -64,7 +67,7 @@ async def get_own_profile(
 
 @router.put(
     "/me/telegram-notifications",
-    responses=error_responses(422),
+    responses=error_responses(413, 422),
     summary="Настроить уведомления Telegram",
 )
 async def set_telegram_notifications(

@@ -198,3 +198,9 @@
 - Операция — добавление
 - Текст пункта — настройка уведомлений находится в auth/router.py и auth/service.py. Очередь и доставка — в `backend/app/modules/telegram_notifications/`, Bot API и разовый обработчик — в `backend/app/telegram/`. Миграция `20261120_0010` добавляет настройку и очередь. Юниты и сценарий VPS находятся в `deploy/staging/`.
 - Источник — указанные исходники, `docs/team/reference/api.md` и `docs/team/development/vps.md`.
+
+## 2026-11-21 — D026 — NAV-21
+
+- Операция — добавление
+- Текст пункта — ограничения входящего JSON до разбора находятся в `backend/app/core/request_body.py`. Исключение для универсального callback задано в `backend/app/modules/integrations/router.py`. Соответствующие ограничения прокси находятся в `deploy/staging/Caddyfile`, проверки границ и контракта — в `backend/tests/test_request_body_limits.py` и `backend/tests/test_integration_postgres.py`.
+- Источник — указанные файлы и `docs/team/reference/api.md`, раздел «Размер тела HTTP-запроса».

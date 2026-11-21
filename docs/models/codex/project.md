@@ -318,3 +318,9 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — замена
 - Текст пункта — P0, P1.1, P1.2, P1.3, серверные P1.4 и P1.5 завершены. P1.6 развёрнут на VPS коммитом 855209b: публичный /ready отвечает, Mini App отдаёт новую сборку, таймер активен, первый разовый обработчик завершился с кодом 0. Осталась проверка фактического получения личного сообщения в Telegram.
 - Источник — `docs/team/planning/roadmap.md`, `docs/team/development/vps.md` и выпуск `855209b51fb7a1916f2d21d3b5d84c2bc4ea9e48`.
+
+## 2026-11-21 — D044 — PROJ-18
+
+- Операция — добавление
+- Текст пункта — сервер и Caddy ограничивают размер JSON-запросов 128 КиБ, для универсального callback допускают 1 МиБ. Публикации и изображения сохраняют потоковые пределы 128 КиБ и 2 МиБ. Размер выше предела возвращает 413, в том числе при передаче без Content-Length.
+- Источник — `backend/app/core/request_body.py`, `backend/app/modules/integrations/router.py`, `backend/app/modules/communities/content_router.py`, `deploy/staging/Caddyfile` и `docs/team/reference/api.md`.
