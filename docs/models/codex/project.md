@@ -324,3 +324,9 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — добавление
 - Текст пункта — сервер и Caddy ограничивают размер JSON-запросов 128 КиБ, для универсального callback допускают 1 МиБ. Публикации и изображения сохраняют потоковые пределы 128 КиБ и 2 МиБ. Размер выше предела возвращает 413, в том числе при передаче без Content-Length.
 - Источник — `backend/app/core/request_body.py`, `backend/app/modules/integrations/router.py`, `backend/app/modules/communities/content_router.py`, `deploy/staging/Caddyfile` и `docs/team/reference/api.md`.
+
+## 2026-11-21 — D045 — PROJ-19
+
+- Операция — добавление
+- Текст пункта — для общего пользователя VPS `legioner` подготовлен переход на индивидуальные ключи из `/etc/ssh/authorized_keys/legioner`. Список меняет root; серверный фрагмент OpenSSH применяется лишь к `legioner`. На момент подготовки проверены новые SSH-соединения и отзыв на отдельной Ubuntu 24.04. Установка на VPS отложена до финального подтверждения выпуска; выпуск Compose сам по себе политику SSH не включает.
+- Источник — `deploy/staging/sshd-legioner.conf`, `docs/team/development/vps.md` и `docs/team/development/ssh-access.md`.

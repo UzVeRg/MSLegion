@@ -204,3 +204,9 @@
 - Операция — добавление
 - Текст пункта — ограничения входящего JSON до разбора находятся в `backend/app/core/request_body.py`. Исключение для универсального callback задано в `backend/app/modules/integrations/router.py`. Соответствующие ограничения прокси находятся в `deploy/staging/Caddyfile`, проверки границ и контракта — в `backend/tests/test_request_body_limits.py` и `backend/tests/test_integration_postgres.py`.
 - Источник — указанные файлы и `docs/team/reference/api.md`, раздел «Размер тела HTTP-запроса».
+
+## 2026-11-21 — D027 — NAV-19
+
+- Операция — замена
+- Текст пункта — команды SSH, выдача и отзыв ключей, пути на VPS и операции администратора описаны в `docs/team/development/vps.md`. Клиентский блок OpenSSH находится в `docs/team/development/ssh_config.example`. Серверная политика для `legioner` находится в `deploy/staging/sshd-legioner.conf`, перенос действующего списка, проверка и откат описаны в `docs/team/development/ssh-access.md`. Для диагностики сверяй ревизию по `/opt/mslegion-staging/current` и фактическое состояние Compose, а команды выпуска и бэкапа — по `deploy/staging/update.sh` и `deploy/staging/backup.sh`.
+- Источник — указанные файлы, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.
