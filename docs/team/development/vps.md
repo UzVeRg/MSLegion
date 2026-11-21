@@ -221,6 +221,7 @@ openssl s_client -connect 127.0.0.1:443 -servername mslegion.miniapp.silentoken.
 | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Проверка подписи данных входа. Должен соответствовать боту, из которого открывается Mini App. |
 | `ADMIN_API_KEY`, `CALLBACK_API_KEY`, `SERVER_STATUS_API_KEY` | Раздельные ключи административных маршрутов, приёма событий и источника статусов серверов. |
+| `OWNER_IMAGE_QUOTA_BYTES` | Общий объём изображений публикаций во всех сообществах одного владельца. Укажите положительное число байт. По умолчанию — 134217728 (128 МиБ). Для применения нового значения пересоздайте сервис `api` через Compose. |
 | `POSTGRES_PASSWORD` | Пароль роли `mslegion`. Используйте символы из шаблона staging, подходящие для URL подключения. |
 | `STAGING_PROXY_NETWORK` | Имя существующей сети Docker внешнего Caddy. |
 | `STAGING_SITE_ADDRESS`, `STAGING_BIND_ADDRESS`, `STAGING_HTTP_PORT`, `STAGING_HTTPS_PORT` | Параметры базового Compose. На VPS дополнение задаёт для web адрес `:80` без публикации портов, а публичные домен и TLS задаются в общем Caddy. |

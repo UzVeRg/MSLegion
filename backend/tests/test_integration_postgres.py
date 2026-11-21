@@ -38,6 +38,10 @@ from app.modules.users.exceptions import UserTelegramUnconfirmedError
 
 settings = get_settings()
 COMMUNITY_TEST_BOT_TOKEN = "123456:team-test"
+TEST_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
+    "/x8AAwMCAO+a1eAAAAAASUVORK5CYII="
+)
 
 pytestmark = [
     pytest.mark.integration,
@@ -471,6 +475,16 @@ def test_server_status_event_processing_with_real_postgres(monkeypatch) -> None:
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 
 
+def png_with_size(size: int, note: bytes = b"note\0") -> bytes:
+    # Добавляем блок tEXt перед IEND, сохраняя корректный PNG заданного размера.
+    text_data = note.ljust(size - len(TEST_PNG) - 12)
+    chunk = b"tEXt" + text_data
+    return (
+        TEST_PNG[:-12] + len(text_data).to_bytes(4, "big") + chunk
+        + crc32(chunk).to_bytes(4, "big") + TEST_PNG[-12:]
+    )
+
+
 def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
     async def run() -> None:
         async with migrated_telegram_client(monkeypatch) as client:
@@ -523,10 +537,7 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert (await client.get(posts, headers=member)).json() == [post]
             assert (await client.get(image_path, headers=member)).status_code == 404
 
-            png = base64.b64decode(
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
-                "/x8AAwMCAO+a1eAAAAAASUVORK5CYII="
-            )
+            png = TEST_PNG
             assert (await client.put(image_path, headers=member, content=png)).status_code == 403
             unsupported = await client.put(image_path, headers=owner, content=b"<html>")
             assert unsupported.status_code == 415
@@ -543,13 +554,7 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert downloaded.headers["content-disposition"].startswith("attachment;")
             assert (await client.get(image_path, headers=outsider)).status_code == 404
 
-            # Добавляем допустимый блок tEXt перед IEND, доводя PNG ровно до 2 МиБ.
-            text_data = b"note\0".ljust(2_097_152 - len(png) - 12)
-            chunk = b"tEXt" + text_data
-            png_at_limit = (
-                png[:-12] + len(text_data).to_bytes(4, "big") + chunk
-                + crc32(chunk).to_bytes(4, "big") + png[-12:]
-            )
+            png_at_limit = png_with_size(2_097_152)
             second_session, _ = await login_for_community_test(client, 501)
 
             async def upload_during_logout():
@@ -572,6 +577,81 @@ def test_community_content_and_images_with_real_postgres(monkeypatch) -> None:
             assert (await client.delete(post_path, headers=owner)).status_code == 204
             assert (await client.get(posts, headers=owner)).json() == []
             assert (await client.get(image_path, headers=owner)).status_code == 404
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_owner_image_quota_with_real_postgres(monkeypatch) -> None:
+    async def create_post(client: AsyncClient, headers: dict[str, str]) -> str:
+        root = "/api/v1/communities"
+        community = await client.post(root, headers=headers, json={"name": "Архив"})
+        assert community.status_code == 201
+        posts = f"{root}/{community.json()['id']}/posts"
+        document = {"title": "Карта", "body": "Описание"}
+        post = await client.post(posts, headers=headers, json=document)
+        assert post.status_code == 201
+        return f"{posts}/{post.json()['id']}"
+
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            owner, _ = await login_for_community_test(client, 511)
+            other, _ = await login_for_community_test(client, 512)
+            initial = await create_post(client, owner)
+            candidates = [await create_post(client, owner) for _ in range(2)]
+            independent_image = f"{await create_post(client, other)}/image"
+            image = f"{initial}/image"
+            assert (await client.put(image, headers=owner, content=TEST_PNG)).status_code == 204
+
+            large = png_with_size(2 * len(TEST_PNG))
+            monkeypatch.setattr(settings, "owner_image_quota_bytes", len(TEST_PNG) + len(large))
+            barrier = asyncio.Barrier(2)
+
+            async def concurrent_body() -> AsyncIterator[bytes]:
+                yield large[:-1]
+                async with asyncio.timeout(10):
+                    await barrier.wait()
+                yield large[-1:]
+
+            responses = await asyncio.gather(*(
+                client.put(f"{post}/image", headers=owner, content=concurrent_body())
+                for post in candidates
+            ))
+            statuses = [response.status_code for response in responses]
+            assert sorted(statuses) == [204, 409]
+            winner = candidates[statuses.index(204)]
+            rejected = candidates[statuses.index(409)]
+            assert responses[statuses.index(409)].json()["error"]["code"] == (
+                "owner_image_quota_exceeded"
+            )
+            assert (await client.get(f"{winner}/image", headers=owner)).content == large
+            assert (await client.get(f"{rejected}/image", headers=owner)).status_code == 404
+            independent_upload = await client.put(independent_image, headers=other, content=large)
+            assert independent_upload.status_code == 204
+            at_limit = png_with_size(len(TEST_PNG) + len(large))
+            grown = await client.put(independent_image, headers=other, content=at_limit)
+            assert grown.status_code == 204
+            too_large = await client.put(
+                independent_image, headers=other, content=png_with_size(len(at_limit) + 1)
+            )
+            assert too_large.status_code == 409
+            assert (await client.get(independent_image, headers=other)).content == at_limit
+
+            # Теперь уже сохранённые изображения вместе превышают новый предел.
+            monkeypatch.setattr(settings, "owner_image_quota_bytes", len(TEST_PNG))
+            conflict = await client.put(image, headers=owner, content=large)
+            assert conflict.status_code == 409
+            assert conflict.json()["error"]["code"] == "owner_image_quota_exceeded"
+            assert (await client.get(image, headers=owner)).content == TEST_PNG
+            same_size = png_with_size(len(large), b"note\0updated")
+            upload = await client.put(f"{winner}/image", headers=owner, content=same_size)
+            assert upload.status_code == 204
+            assert (await client.get(f"{winner}/image", headers=owner)).content == same_size
+            smaller = await client.put(f"{winner}/image", headers=owner, content=TEST_PNG)
+            assert smaller.status_code == 204
+            assert (await client.delete(winner, headers=owner)).status_code == 204
+            assert (await client.delete(initial, headers=owner)).status_code == 204
+            reused = await client.put(f"{rejected}/image", headers=owner, content=TEST_PNG)
+            assert reused.status_code == 204
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 

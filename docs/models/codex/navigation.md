@@ -210,3 +210,9 @@
 - Операция — замена
 - Текст пункта — команды SSH, выдача и отзыв ключей, пути на VPS и операции администратора описаны в `docs/team/development/vps.md`. Клиентский блок OpenSSH находится в `docs/team/development/ssh_config.example`. Серверная политика для `legioner` находится в `deploy/staging/sshd-legioner.conf`, перенос действующего списка, проверка и откат описаны в `docs/team/development/ssh-access.md`. Для диагностики сверяй ревизию по `/opt/mslegion-staging/current` и фактическое состояние Compose, а команды выпуска и бэкапа — по `deploy/staging/update.sh` и `deploy/staging/backup.sh`.
 - Источник — указанные файлы, `compose.staging.yml` и `deploy/staging/compose.proxy.yml`.
+
+## 2026-11-21 — D028 — NAV-22
+
+- Операция — добавление
+- Текст пункта — лимит суммарного объёма изображений владельца задан в `backend/app/core/config.py` и передаётся в API через `compose.staging.yml`. Порядок блокировки и подсчёта байтов — в `backend/app/modules/communities/content_repository.py`, условия отказа при замене — в `content_service.py` того же модуля. Проверка конкуренции между сообществами одного владельца и старых данных — `test_owner_image_quota_with_real_postgres`.
+- Источник — указанные файлы, `backend/tests/test_integration_postgres.py`, `docs/team/reference/api.md` и `docs/team/development/vps.md`.

@@ -55,6 +55,12 @@ class CommunityPostImageTooLargeError(AppError):
     default_message = "Размер изображения превышает 2 МиБ"
 
 
+class OwnerImageQuotaExceededError(AppError):
+    status_code = 409
+    code = "owner_image_quota_exceeded"
+    default_message = "Превышена общая квота изображений владельца сообществ"
+
+
 class CommunityPostImageTypeError(AppError):
     status_code = 415
     code = "community_post_image_type"

@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import delete, select, true, update
+from sqlalchemy import delete, func, select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.communities.models import Community, CommunityPost
 from app.modules.communities.repository import visible_to
 from app.modules.communities.schemas import CommunityPostRead
+from app.modules.users.models import User
 
 
 async def list_visible_posts(
@@ -38,11 +39,29 @@ async def list_visible_posts(
     return [CommunityPostRead.model_validate(row) for row in rows if row["id"] is not None]
 
 
-async def post_exists(session: AsyncSession, community_id: UUID, post_id: UUID) -> bool:
-    query = select(CommunityPost.id).where(
+async def get_post_image_size(
+    session: AsyncSession, community_id: UUID, post_id: UUID
+) -> int | None:
+    query = select(func.coalesce(func.octet_length(CommunityPost.image), 0)).where(
         CommunityPost.community_id == community_id, CommunityPost.id == post_id
     )
-    return await session.scalar(query) is not None
+    return await session.scalar(query)
+
+
+async def lock_owner_image_quota(session: AsyncSession, owner_id: UUID) -> None:
+    # После ожидания блокировки подсчёт должен увидеть последнюю завершённую загрузку.
+    await session.execute(text("SET TRANSACTION ISOLATION LEVEL READ COMMITTED"))
+    await session.execute(select(User.id).where(User.id == owner_id).with_for_update())
+
+
+async def get_owner_image_bytes(session: AsyncSession, owner_id: UUID) -> int:
+    query = (
+        select(func.coalesce(func.sum(func.octet_length(CommunityPost.image)), 0))
+        .select_from(CommunityPost)
+        .join(Community, Community.id == CommunityPost.community_id)
+        .where(Community.owner_id == owner_id, CommunityPost.image.is_not(None))
+    )
+    return (await session.execute(query)).scalar_one()
 
 
 async def delete_post(session: AsyncSession, community_id: UUID, post_id: UUID) -> bool:

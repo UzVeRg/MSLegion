@@ -330,3 +330,9 @@ Backend предоставляет проверки `/health` и `/ready`, со�
 - Операция — добавление
 - Текст пункта — для общего пользователя VPS `legioner` подготовлен переход на индивидуальные ключи из `/etc/ssh/authorized_keys/legioner`. Список меняет root; серверный фрагмент OpenSSH применяется лишь к `legioner`. На момент подготовки проверены новые SSH-соединения и отзыв на отдельной Ubuntu 24.04. Установка на VPS отложена до финального подтверждения выпуска; выпуск Compose сам по себе политику SSH не включает.
 - Источник — `deploy/staging/sshd-legioner.conf`, `docs/team/development/vps.md` и `docs/team/development/ssh-access.md`.
+
+## 2026-11-21 — D046 — PROJ-20
+
+- Операция — добавление
+- Текст пункта — API ограничивает суммарный размер изображений публикаций по владельцу всех его сообществ. Квота по умолчанию 128 МиБ, предел одного изображения 2 МиБ. Расчёт использует текущие строки PostgreSQL и учитывает старые вложения без пересчёта при выпуске. Установка на VPS ожидает финального подтверждения выпуска.
+- Источник — `backend/app/modules/communities/content_service.py`, `backend/app/modules/communities/content_repository.py`, `compose.staging.yml` и `docs/team/reference/api.md`.

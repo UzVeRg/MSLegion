@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "INFO"
+    owner_image_quota_bytes: int = Field(default=128 * 1024 * 1024, ge=1)
 
     database_url: str = "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5432/mslegion"
     admin_api_key: str | None = Field(default=None, repr=False)

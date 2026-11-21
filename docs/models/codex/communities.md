@@ -49,3 +49,9 @@
 - Операция — добавление
 - Текст пункта — историческая статистика показывает число внутренних событий сообщества по типам и дням UTC за последние 1–90 дней. День без события соответствующего типа не создаёт строку.
 - Источник — `backend/app/modules/communities/repository.py`, `backend/app/modules/communities/service.py` и `docs/team/reference/api.md`.
+
+## 2026-11-21 — D007 — COMM-07
+
+- Операция — добавление
+- Текст пункта — владелец по умолчанию может хранить суммарно 128 МиБ изображений во всех своих сообществах. Предел задаёт OWNER_IMAGE_QUOTA_BYTES. Завершающая транзакция загрузки блокирует запись владельца, повторно проверяет права и учитывает фактический размер существующих изображений в PostgreSQL. Рост сверх лимита возвращает 409 owner_image_quota_exceeded. При уже превышенной квоте допустимы чтение, равноразмерная замена, уменьшение и удаление публикации вместе с изображением.
+- Источник — `backend/app/modules/communities/content_service.py`, `backend/app/modules/communities/content_repository.py`, `backend/app/core/config.py` и `backend/tests/test_integration_postgres.py`.

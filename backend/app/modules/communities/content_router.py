@@ -1,9 +1,11 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
+from app.core.config import Settings, get_settings
 from app.core.exceptions import error_responses
 from app.modules.auth.router import SessionDependency, TokenHash
 from app.modules.communities import content_service as service
@@ -83,7 +85,7 @@ async def delete_post(
 @router.put(
     "/{post_id}/image",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=error_responses(403, 413, 415),
+    responses=error_responses(403, 409, 413, 415),
     summary="Загрузить или заменить изображение публикации",
     openapi_extra={
         "requestBody": {
@@ -105,8 +107,16 @@ async def upload_image(
     request: Request,
     token_hash: TokenHash,
     session: SessionDependency,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
-    await service.upload_image(session, token_hash, community_id, post_id, request.stream())
+    await service.upload_image(
+        session,
+        token_hash,
+        community_id,
+        post_id,
+        request.stream(),
+        owner_quota_bytes=settings.owner_image_quota_bytes,
+    )
 
 
 @router.get(

@@ -25,6 +25,7 @@ services:
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       CALLBACK_API_KEY: ${CALLBACK_API_KEY:-}
       SERVER_STATUS_API_KEY: ${SERVER_STATUS_API_KEY:-}
+      OWNER_IMAGE_QUOTA_BYTES: ${OWNER_IMAGE_QUOTA_BYTES:-134217728}
     command: ["sh", "-ec", "alembic upgrade head && exec python -m app"]
     depends_on:
       postgres:

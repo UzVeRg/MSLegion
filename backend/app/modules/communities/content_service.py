@@ -12,6 +12,7 @@ from app.modules.communities.exceptions import (
     CommunityPostImageTooLargeError,
     CommunityPostImageTypeError,
     CommunityPostNotFoundError,
+    OwnerImageQuotaExceededError,
 )
 from app.modules.communities.models import MAX_POST_IMAGE_BYTES, CommunityPost
 from app.modules.communities.schemas import CommunityPostCreate, CommunityPostRead
@@ -103,11 +104,14 @@ async def upload_image(
     community_id: UUID,
     post_id: UUID,
     stream: AsyncIterator[bytes],
+    *,
+    owner_quota_bytes: int,
 ) -> None:
     async with session.begin():
         actor = await get_own_profile(session, token_hash)
-        await require_owner(session, actor.id, community_id)
-        if not await repository.post_exists(session, community_id, post_id):
+        owner_id = actor.id
+        await require_owner(session, owner_id, community_id)
+        if await repository.get_post_image_size(session, community_id, post_id) is None:
             raise CommunityPostNotFoundError
 
     # Загрузка ограничена по размеру и проходит без открытой транзакции.
@@ -115,8 +119,17 @@ async def upload_image(
     media_type = image_type(content)
 
     async with session.begin():
+        await repository.lock_owner_image_quota(session, owner_id)
         actor = await get_own_profile(session, token_hash)
         await require_owner(session, actor.id, community_id)
+        previous_size = await repository.get_post_image_size(session, community_id, post_id)
+        if previous_size is None:
+            raise CommunityPostNotFoundError
+        growth = len(content) - previous_size
+        if growth > 0:
+            used = await repository.get_owner_image_bytes(session, owner_id)
+            if used + growth > owner_quota_bytes:
+                raise OwnerImageQuotaExceededError
         if not await repository.save_image(session, community_id, post_id, media_type, content):
             raise CommunityPostNotFoundError
 
