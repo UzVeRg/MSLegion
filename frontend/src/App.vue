@@ -1,11 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ApiError, exchangeTelegramData, fetchProfile, revokeSession, setTelegramNotifications, type Profile,
 } from './api'
 import { getTelegramWebApp, requestTelegramWriteAccess } from './telegram'
 
 type Phase = 'outside' | 'loading' | 'profile' | 'expired' | 'reopen' | 'error' | 'signed-out'
+
+const themes = [
+  { id: 'graphite', label: 'Чёрный графит' },
+  { id: 'neo-gothic', label: 'Неоготика' },
+  { id: 'network', label: 'Сеть' },
+  { id: 'underground', label: 'Подземный клуб' },
+] as const
+const themeStorageKey = 'mslegion.theme'
+const theme = ref(loadTheme())
+document.documentElement.dataset.theme = theme.value
+
+watch(theme, (value) => {
+  document.documentElement.dataset.theme = value
+  try {
+    localStorage.setItem(themeStorageKey, value)
+  } catch {
+    // При недоступном хранилище тема действует до закрытия приложения.
+  }
+})
+
+function loadTheme() {
+  try {
+    const savedTheme = localStorage.getItem(themeStorageKey)
+    return themes.find(({ id }) => id === savedTheme)?.id ?? themes[0].id
+  } catch {
+    return themes[0].id
+  }
+}
 
 const phase = ref<Phase>('outside')
 const profile = ref<Profile | null>(null)
@@ -201,5 +229,15 @@ onUnmounted(() => {
         {{ retryLabel }}
       </button>
     </section>
+
+    <details class="panel settings">
+      <summary>Настройки</summary>
+      <label class="theme-setting">
+        <span>Тема</span>
+        <select v-model="theme">
+          <option v-for="{ id, label } in themes" :key="id" :value="id">{{ label }}</option>
+        </select>
+      </label>
+    </details>
   </main>
 </template>

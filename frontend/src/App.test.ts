@@ -59,6 +59,34 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('Оформление Mini App', () => {
+  afterEach(() => {
+    localStorage.removeItem('mslegion.theme')
+    delete document.documentElement.dataset.theme
+  })
+
+  it('использует чёрный графит при неизвестной сохранённой теме', () => {
+    localStorage.setItem('mslegion.theme', 'unknown')
+    const settings = mount().querySelector('details')
+    expect(settings?.querySelector('summary')?.textContent).toBe('Настройки')
+    expect(settings?.querySelector('select')?.value).toBe('graphite')
+    expect(document.documentElement.dataset.theme).toBe('graphite')
+  })
+
+  it('применяет каждую тему и восстанавливает последнюю при открытии', async () => {
+    const select = mount().querySelector('select')
+    expect(select).not.toBeNull()
+    for (const theme of ['neo-gothic', 'network', 'underground', 'graphite', 'network']) {
+      select!.value = theme
+      select!.dispatchEvent(new Event('change'))
+      await setImmediate()
+      expect(document.documentElement.dataset.theme).toBe(theme)
+    }
+
+    expect(mount().querySelector('select')?.value).toBe('network')
+  })
+})
+
 describe('Telegram Mini App', () => {
   it('просит разрешение Telegram перед включением уведомлений', async () => {
     const permission = vi.fn((callback: (allowed: boolean) => void) => callback(true))
