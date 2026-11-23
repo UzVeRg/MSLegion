@@ -3,33 +3,52 @@ name: mslegion-staging
 services:
   postgres:
     image: postgres:17-alpine
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/mslegion-pg_hba.conf"]
     environment:
       POSTGRES_USER: mslegion
       POSTGRES_DB: mslegion_staging
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD для стенда}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - type: bind
+        source: ./deploy/staging/pg_hba.conf
+        target: /etc/postgresql/mslegion-pg_hba.conf
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "mslegion", "-d", "mslegion_staging"]
       interval: 5s
       timeout: 3s
       retries: 12
 
+  migrate:
+    image: ${COMPOSE_PROJECT_NAME}-api
+    pull_policy: never
+    environment:
+      DATABASE_URL: postgresql+psycopg://mslegion@postgres:5432/mslegion_staging
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD для стенда}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?Задайте отдельный пароль роли API}
+    command: ["python", "-m", "app.staging_migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build: ./backend
     environment:
       APP_ENV: staging
       APP_HOST: 0.0.0.0
-      DATABASE_URL: postgresql+psycopg://mslegion:${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD для стенда}@postgres:5432/mslegion_staging
+      DATABASE_URL: postgresql+psycopg://mslegion_api@postgres:5432/mslegion_staging
+      PGPASSWORD: ${APP_DATABASE_PASSWORD:?Задайте отдельный пароль роли API}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       CALLBACK_API_KEY: ${CALLBACK_API_KEY:-}
       SERVER_STATUS_API_KEY: ${SERVER_STATUS_API_KEY:-}
       OWNER_IMAGE_QUOTA_BYTES: ${OWNER_IMAGE_QUOTA_BYTES:-134217728}
-    command: ["sh", "-ec", "alembic upgrade head && exec python -m app"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/ready', timeout=2).close()"]
       interval: 5s

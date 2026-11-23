@@ -222,3 +222,9 @@
 - Операция — замена
 - Текст пункта — HTTP-вход Telegram, собственный профиль и выход находятся в `backend/app/modules/auth/router.py`. Выдача токена и блокировка владельца находятся в service.py, выбор сохраняемых сессий, проверка предъявленного токена и отзыв — в repository.py того же модуля. Модель — models.py, пакетная очистка — maintenance.py, её периодический запуск — `backend/app/telegram/worker.py`. Ревизия `20261120_0004` создаёт таблицу user_sessions, ревизия `20261123_0011` ограничивает число прежних активных сессий и добавляет индексы очистки. TELEGRAM_BOT_TOKEN читается из настроек ядра. Контракт Bearer и режим без токена бота покрывает `backend/tests/test_auth.py`, проверку лимита на PostgreSQL и миграцию — `backend/tests/test_integration_postgres.py`, работу очистки — `backend/tests/test_session_cleanup.py`.
 - Источник — указанные файлы и `docs/team/development/testing.md`.
+
+## 2026-11-23 — D030 — NAV-13
+
+- Операция — замена
+- Текст пункта — базовый HTTPS-стенд определяют `compose.staging.yml`, `backend/Dockerfile`, `.env.staging.example` и `deploy/staging/Caddyfile`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Одноразовая команда `backend/app/staging_migrate.py` обновляет схему и выдаёт прикладные права до запуска API. Разделение подключений по ролям задано в `deploy/staging/pg_hba.conf`, проверка ролей и восстановления — в `deploy/staging/tests/check_database_roles.py`. На VPS `deploy/staging/compose.proxy.yml` подключает только web к общей сети прокси и снимает публикацию портов приложения. В `deploy/staging/` находятся update.sh для развёртывания SHA, backup.sh для дампа PostgreSQL и mslegion-backup.timer с расписанием.
+- Источник — указанные файлы, `docs/team/development/staging.md`, `docs/team/development/testing.md` и `docs/team/development/vps.md`.

@@ -94,3 +94,10 @@
 - Операция — замена
 - Текст пункта — Назначение проекта, реализованное состояние и принятые решения смотри в [project.md](project.md). Исходники backend, HTTP-контрактов, миграций, локального запуска, CI и публичного стенда перечислены в [navigation.md](navigation.md). Для SSH-доступа, размещения файлов, выпуска и диагностики открывай [руководство по VPS](../../team/development/vps.md) и [шаблон SSH](../../team/development/ssh_config.example). Отдельный HTTPS-стенд описан в [руководстве по staging](../../team/development/staging.md). Для Mini App открой [frontend.md](frontend.md), для сообществ и членства — [communities.md](communities.md). Вход и сессии описаны в [архитектуре](../../team/architecture/overview.md), порядок реализации — в [плане развития](../../team/planning/roadmap.md), исходные 50 идей — в [каталоге возможностей](../../team/planning/feature-catalog.md). Применяй дополнения и проверяй факты по источникам.
 - Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md`, `docs/team/development/vps.md` и `docs/team/planning/feature-catalog.md`.
+
+
+## 2026-11-23 — D010 — INDEX-05
+
+- Операция — замена
+- Текст пункта — после проверки каждого значимого изменения создай коммит и отправь его с локальной машины на GitHub. Включай только изменения задачи. Затем выпусти проверенный коммит из `main` на VPS, перезапусти затронутые сервисы и проверь публичные /health, /ready и изменённый сценарий. Для Mini App проверь новую сборку и по возможности открой приложение в Telegram. Учитывай явные исключения в текущей задаче. При сбое укажи причину, локальный коммит и статус выпуска.
+- Источник — `AGENTS.md`, пункты 5 и 7, и `docs/team/development/vps.md`, раздел «Выпуск из Git».

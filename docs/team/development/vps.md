@@ -139,7 +139,7 @@ exit
 | `/opt/mslegion-staging/releases/<SHA>` | Сборки и Compose-файлы конкретных выпусков. `/opt/mslegion-staging/current` указывает на успешно развёрнутый выпуск. |
 | `/etc/mslegion/staging.env` | Переменные окружения. `root:root`, права `600`. Родительский каталог имеет права `700`. В Git хранится шаблон `.env.staging.example`. |
 | `/opt/caddy-remnawave/Caddyfile` | Общий публичный Caddy. Домен Mini App направлен на `mslegion-staging-web:80`. |
-| `mslegion-staging` | Имя проекта Compose. Сервисы `postgres`, `api`, `web`. PostgreSQL 17 хранит базу `mslegion_staging` в томе `mslegion-staging_postgres_data`. |
+| `mslegion-staging` | Имя проекта Compose. Сервисы `postgres`, `api` и `web` работают постоянно, `migrate` выполняется при запуске. PostgreSQL 17 хранит базу `mslegion_staging` в томе `mslegion-staging_postgres_data`. |
 | `remnawave-network` | Общая сеть публичного Caddy, указана в `STAGING_PROXY_NETWORK`. Из проекта к ней подключён только `web`. API и PostgreSQL используют сеть проекта, порты приложения на хосте не публикуются. |
 | `/var/backups/mslegion` | Дампы PostgreSQL с правами `600`. Ежедневное копирование в 01:00 UTC, хранение 14 суток на VPS. |
 | `/etc/systemd/system/mslegion-backup.{service,timer}` | Установленные юниты копирования. Исходники в `deploy/staging/`. |
@@ -148,7 +148,9 @@ exit
 
 ### Выпуск из Git
 
-1. Проверьте изменения выбранного коммита из `main`, включая Compose, Dockerfile, сценарии и миграции. Подготовьте полный 40-символьный SHA.
+После отправки каждого изменения на GitHub выпускайте проверенный коммит из `main` на VPS. Применяйте выпуск через Compose с перезапуском затронутых сервисов. Проверьте публичные `/health` и `/ready` и воспроизведите изменённый сценарий. Для изменений интерфейса проверьте выдачу новой сборки и по возможности откройте её из меню Telegram-бота.
+
+1. Проверьте изменения выбранного коммита из `main`, включая Compose, Dockerfile, сценарии и миграции. Подготовьте полный 40-символьный SHA. Перед первым выпуском с разделением ролей сохраните действующий пароль `mslegion` в `POSTGRES_PASSWORD` и добавьте отдельный `APP_DATABASE_PASSWORD` в `/etc/mslegion/staging.env` по инструкции ниже. Существующие том и база используются при обновлении.
 2. Из root-сессии запустите скрипт из текущего выпуска. В примере замените `ПОЛНЫЙ_SHA`:
 
    ```bash
@@ -156,7 +158,7 @@ exit
    readlink -f /opt/mslegion-staging/current
    ```
 
-3. Скрипт проверяет принадлежность коммита к `main` и движение вперёд от текущего выпуска, собирает и тестирует frontend в контейнере Node.js, собирает API, создаёт дамп перед обновлением и ждёт готовности Compose. API применяет миграции при запуске. После успеха `current` указывает на выбранный SHA. Проверьте HTTPS и повторите вход из меню бота.
+3. Скрипт проверяет принадлежность коммита к `main` и движение вперёд от текущего выпуска, собирает и тестирует frontend в контейнере Node.js, собирает образ backend, создаёт дамп перед обновлением и ждёт готовности Compose. Сервис `migrate` из того же образа применяет миграции и настраивает роль приложения. После его успешного завершения запускается API. Скрипт переводит `current` на выбранный SHA после готовности сервисов. Проверьте HTTPS и повторите вход из меню бота.
 
 При сбое `current` остаётся на предыдущем выпуске, хотя контейнеры или схема уже могли измениться. Посмотрите `ps`, журналы и ревизию Alembic. После устранения причины можно повторить запуск того же SHA. Для возврата к предыдущему коду сначала проверьте его совместимость с фактической схемой БД и сохраните свежую копию БД. Скрипт обновления сам откат не выполняет.
 
@@ -171,15 +173,17 @@ release=$(readlink -f /opt/mslegion-staging/current)
 compose=(docker compose --env-file /etc/mslegion/staging.env
   -f "$release/compose.staging.yml" -f "$release/deploy/staging/compose.proxy.yml")
 "${compose[@]}" config --quiet
-"${compose[@]}" ps
+"${compose[@]}" ps --all
 "${compose[@]}" logs --tail=100 api web
-"${compose[@]}" logs --tail=100 postgres
-"${compose[@]}" exec -T api alembic current
+"${compose[@]}" logs --tail=100 postgres migrate
+"${compose[@]}" exec -T postgres psql -X -U mslegion -d mslegion_staging -v ON_ERROR_STOP=1 \
+  -c 'SELECT version_num FROM alembic_version'
+"${compose[@]}" exec -T api python -c 'from sqlalchemy import create_engine,text; from app.core.config import get_settings; print(create_engine(get_settings().database_url).connect().scalar(text("SELECT current_user")))'
 docker exec caddy-remnawave wget -qO- http://mslegion-staging-web/ready
 df -h /opt/mslegion-staging /var/backups/mslegion
 ```
 
-Ожидаемый результат — три здоровых сервиса и `{"status":"ok","database":"ok"}` на `/ready`. С ноутбука или любого внешнего клиента проверьте публичные ответы. В PowerShell используйте `curl.exe` вместо `curl`:
+Ожидаемый результат — три здоровых сервиса, `migrate` со статусом `Exited (0)`, роль `mslegion_api` для соединения API и `{"status":"ok","database":"ok"}` на `/ready`. С ноутбука или любого внешнего клиента проверьте публичные ответы. В PowerShell используйте `curl.exe` вместо `curl`:
 
 ```bash
 curl -fsS -o /dev/null -w '%{http_code}\n' https://mslegion.miniapp.silentoken.com/
@@ -217,18 +221,40 @@ openssl s_client -connect 127.0.0.1:443 -servername mslegion.miniapp.silentoken.
   -verify_hostname mslegion.miniapp.silentoken.com -verify_return_error </dev/null
 ```
 
-Значения окружения меняйте в `/etc/mslegion/staging.env` от root. Для изменения *ключей API или токена бота* выполните `"${compose[@]}" config --quiet && "${compose[@]}" up -d --wait api` и перепроверьте `/ready` и затронутый сценарий. Compose применяет новое окружение при пересоздании API. Пароль действующей PostgreSQL меняют согласованно в самой роли БД и окружении: одно редактирование `POSTGRES_PASSWORD` не меняет пароль в уже созданной БД. Используйте `config --quiet`, чтобы проверять Compose без вывода подставленных значений. [Проверка конфигурации Compose](https://docs.docker.com/reference/cli/docker/compose/config/)
+Значения окружения меняйте в `/etc/mslegion/staging.env` от root. Для изменения *ключей API или токена бота* выполните `"${compose[@]}" config --quiet && "${compose[@]}" up -d --wait api` и перепроверьте `/ready` и затронутый сценарий. Compose применяет новое окружение при пересоздании API. Используйте `config --quiet`, чтобы проверять Compose без вывода подставленных значений. [Проверка конфигурации Compose](https://docs.docker.com/reference/cli/docker/compose/config/)
 
 | Переменная | Где применяется |
 | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Проверка подписи данных входа. Должен соответствовать боту, из которого открывается Mini App. |
 | `ADMIN_API_KEY`, `CALLBACK_API_KEY`, `SERVER_STATUS_API_KEY` | Раздельные ключи административных маршрутов, приёма событий и источника статусов серверов. |
 | `OWNER_IMAGE_QUOTA_BYTES` | Общий объём изображений публикаций во всех сообществах одного владельца. Укажите положительное число байт. По умолчанию — 134217728 (128 МиБ). Для применения нового значения пересоздайте сервис `api` через Compose. |
-| `POSTGRES_PASSWORD` | Пароль роли `mslegion`. Используйте символы из шаблона staging, подходящие для URL подключения. |
+| `POSTGRES_PASSWORD` | Пароль роли `mslegion` для инициализации PostgreSQL и подключения сервиса `migrate`. На действующем томе смену пароля этой роли согласуйте с изменением самого пароля в PostgreSQL. |
+| `APP_DATABASE_PASSWORD` | Отдельный пароль `mslegion_api`. Сервис `migrate` устанавливает его в PostgreSQL. В окружении API и обработчика он передаётся через `PGPASSWORD`. URL соединений в Compose содержат только имя роли, адрес и базу. |
 | `STAGING_PROXY_NETWORK` | Имя существующей сети Docker внешнего Caddy. |
 | `STAGING_SITE_ADDRESS`, `STAGING_BIND_ADDRESS`, `STAGING_HTTP_PORT`, `STAGING_HTTPS_PORT` | Параметры базового Compose. На VPS дополнение задаёт для web адрес `:80` без публикации портов, а публичные домен и TLS задаются в общем Caddy. |
 
 Перед передачей журналов проверьте, что они не содержат значений секретов, токенов сессий и данных входа Telegram.
+
+### Пароль приложения PostgreSQL
+
+Перед первым выпуском с разделением ролей выполните блок под root, если `APP_DATABASE_PASSWORD` ещё не задан. Тот же блок заменяет пароль при плановой ротации. Он сохраняет остальные параметры и атомарно заменяет файл окружения. Случайное значение передаётся прямо в файл с правами `600`.
+
+```bash
+(
+  set +x
+  set -euo pipefail
+  umask 077
+  env_file=/etc/mslegion/staging.env
+  candidate=$(mktemp /etc/mslegion/.staging.env.XXXXXXXX)
+  trap 'rm -f -- "$candidate"' EXIT
+  sed '/^APP_DATABASE_PASSWORD=/d' "$env_file" > "$candidate"
+  printf '\nAPP_DATABASE_PASSWORD=' >> "$candidate"
+  openssl rand -hex 32 >> "$candidate"
+  mv -T -- "$candidate" "$env_file"
+)
+```
+
+При переходе со старого выпуска продолжите обычное обновление из Git. Для ротации после перехода объявите массив `compose` из диагностики, выполните `"${compose[@]}" config --quiet && "${compose[@]}" up -d --wait` и проверьте роль соединения API и `/ready`. Сервис `migrate` применит пароль к роли, а пересозданный API получит его для новых соединений. В промежутке между этими действиями новые запросы могут временно возвращать ошибку. При прерванном запуске повторите ту же команду с уже подготовленным файлом.
 
 ### Маршрут и сертификат Caddy
 
@@ -296,4 +322,4 @@ systemctl list-timers --all mslegion-backup.timer
 )
 ```
 
-Сверяйте ревизию, счётчики и контрольные записи с состоянием на момент копирования. Восстановление в активную базу планируйте отдельно с остановкой записи и проверкой совместимости схемы. [Документация pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
+Резервную копию и проверку восстановления выполняет роль `mslegion`. После перехода на разделённые роли правила подключений PostgreSQL разрешают `mslegion_api` только рабочую базу `mslegion_staging`, включая подключения через сокет. К проверочной базе обращайтесь под `mslegion`. Сверяйте ревизию, счётчики и контрольные записи с состоянием на момент копирования. Восстановление в активную базу планируйте отдельно с остановкой записи и проверкой совместимости схемы. После такого восстановления прогоните `migrate` для применения прав из текущего выпуска. [Документация pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)

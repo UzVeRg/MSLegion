@@ -14,14 +14,14 @@ npm --prefix frontend run build
 if (-not (Test-Path .env.staging)) { Copy-Item .env.staging.example .env.staging }
 ```
 
-Задайте `POSTGRES_PASSWORD` в `.env.staging`. Используйте случайное значение из букв, цифр, дефисов и подчёркиваний, так как пароль входит в URL соединения. Для теста из Telegram укажите токен отдельного тестового бота в `TELEGRAM_BOT_TOKEN`. При необходимости задайте разные `ADMIN_API_KEY`, `CALLBACK_API_KEY` и `SERVER_STATUS_API_KEY`.
+Задайте в `.env.staging` два разных случайных пароля. `POSTGRES_PASSWORD` принадлежит роли `mslegion`, которая инициализирует базу и выполняет миграции. `APP_DATABASE_PASSWORD` принадлежит роли `mslegion_api`, под которой работают API и обработчик Telegram. При обновлении существующего тома сохраните прежний `POSTGRES_PASSWORD` и добавьте `APP_DATABASE_PASSWORD`. Для проверки входа из Telegram укажите токен отдельного тестового бота в `TELEGRAM_BOT_TOKEN`. При необходимости задайте разные `ADMIN_API_KEY`, `CALLBACK_API_KEY` и `SERVER_STATUS_API_KEY`.
 
 ```powershell
 docker compose --env-file .env.staging -f compose.staging.yml up -d --build --wait
-docker compose --env-file .env.staging -f compose.staging.yml ps
+docker compose --env-file .env.staging -f compose.staging.yml ps --all
 ```
 
-PostgreSQL использует отдельный том. API применяет миграции перед запуском и становится готовым после успешного ответа `/ready`. Caddy раздаёт `frontend/dist` и проксирует `/api`, `/health` и `/ready` с того же HTTPS-адреса.
+PostgreSQL использует отдельный том. Одноразовый сервис `migrate` обновляет схему и выдаёт права на таблицы. После его завершения с кодом 0 запускается API. Проверьте готовность по `/ready`. Caddy раздаёт `frontend/dist` и проксирует `/api`, `/health` и `/ready` с того же HTTPS-адреса.
 
 По умолчанию стенд слушает только `127.0.0.1` и использует локальный сертификат для `localhost`. Для проверки на Windows можно передать корневой сертификат самому клиенту без изменения системного хранилища.
 
@@ -52,4 +52,4 @@ docker @staging cp $backupArchive postgres:/tmp/staging-restore.dump
 docker @staging exec -T postgres pg_restore -U mslegion -d $restoreDatabase --exit-on-error --single-transaction --no-owner --no-privileges /tmp/staging-restore.dump
 ```
 
-Сверьте ревизию Alembic, число записей и контрольные данные в исходной и восстановленной базе. Для публикаций дополнительно сравните хеши изображений и записи внутреннего журнала. Архив сохраняйте вне репозитория. Если стенд принимает новые записи, сравнивайте с состоянием на момент создания дампа.
+Сверьте ревизию Alembic, число записей и контрольные данные в исходной и восстановленной базе под ролью `mslegion`. Правила PostgreSQL ограничивают подключения `mslegion_api` базой `mslegion_staging`, в том числе после восстановления архива в отдельную базу. Для публикаций дополнительно сравните хеши изображений и записи внутреннего журнала. Архив сохраняйте вне репозитория. Если стенд принимает новые записи, сравнивайте с состоянием на момент создания дампа.
