@@ -55,7 +55,8 @@ def grant_api_access(connection: Connection) -> None:
         GRANT USAGE ON SCHEMA public TO mslegion_api;
         GRANT SELECT, INSERT ON public.users, public.user_sessions, public.communities,
               public.community_memberships, public.community_servers, public.community_posts,
-              public.integration_events, public.telegram_notifications, public.domain_events
+              public.integration_events, public.telegram_notifications, public.domain_events,
+              public.mafia_rooms
               TO mslegion_api;
         GRANT DELETE ON public.community_memberships, public.community_servers,
               public.community_posts, public.user_sessions TO mslegion_api;
@@ -69,6 +70,7 @@ def grant_api_access(connection: Connection) -> None:
         GRANT UPDATE (image, image_type) ON public.community_posts TO mslegion_api;
         GRANT UPDATE (processing_state) ON public.integration_events TO mslegion_api;
         GRANT UPDATE (state, attempted_at) ON public.telegram_notifications TO mslegion_api;
+        GRANT UPDATE (state, updated_at) ON public.mafia_rooms TO mslegion_api;
     """)
 
 

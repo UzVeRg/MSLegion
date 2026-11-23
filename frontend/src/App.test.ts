@@ -126,6 +126,65 @@ describe('Навигация Mini App', () => {
     expect(host.querySelector('h1')?.textContent).toBe('Главная')
   })
 
+  it.each(['graphite', 'neo-gothic', 'network', 'underground'])(
+    'открывает «Мафию» из игр в теме %s', async (theme) => {
+      localStorage.setItem('mslegion.theme', theme)
+      try {
+        const host = mount()
+        await openPage(host, 'Игры')
+        await clickLabel(host, 'Мафия')
+        expect(host.querySelector('h1')?.textContent).toBe('Мафия')
+        expect(document.documentElement.dataset.theme).toBe(theme)
+        expect(host.textContent).toContain('Откройте MSLegion в Telegram')
+      } finally {
+        localStorage.removeItem('mslegion.theme')
+      }
+    },
+  )
+
+  it('создаёт настраиваемую комнату и показывает участнику его роль', async () => {
+    const settings = {
+      mode: 'custom', doctor: false, detective: true, night_seconds: 45,
+      day_seconds: 90, vote_seconds: 35,
+    }
+    const room = {
+      code: 'AB12CD34EF', settings, host_id: profile.id, phase: 'night',
+      round: 1, turn: 1, deadline: new Date(Date.now() + 45_000).toISOString(),
+      server_time: new Date().toISOString(), winner: null,
+      players: [{ id: profile.id, name: profile.display_name, alive: true, role: null }],
+      role: 'detective', allies: [], eligible_targets: [], can_target: true, target_locked: false,
+      target_id: null, vote_count: null, history: [], investigations: [], messages: [],
+      chat: null, can_chat: false,
+    }
+    const fetch = vi.fn((url: string, options: RequestInit = {}) => {
+      if (url.endsWith('/auth/telegram')) return Promise.resolve(loginResponse())
+      if (url.endsWith('/auth/me')) return Promise.resolve(Response.json(profile))
+      if (url.endsWith('/mafia/rooms') && options.method === 'POST') {
+        expect(JSON.parse(String(options.body))).toEqual(settings)
+        return Promise.resolve(Response.json(room))
+      }
+      return Promise.resolve(Response.json([]))
+    })
+    vi.stubGlobal('fetch', fetch)
+    const { host } = openMiniApp()
+    await openPage(host, 'Игры')
+    await clickLabel(host, 'Мафия')
+    await setImmediate()
+    const mode = host.querySelector<HTMLSelectElement>('#mafia-mode')!
+    mode.value = 'custom'
+    mode.dispatchEvent(new Event('change'))
+    await nextTick()
+    const doctor = host.querySelector<HTMLInputElement>('#mafia-doctor')!
+    doctor.checked = false
+    doctor.dispatchEvent(new Event('change'))
+    await clickLabel(host, 'Создать комнату')
+    await setImmediate()
+    expect(host.textContent).toContain('Ваша роль')
+    expect(host.textContent).toContain('Комиссар')
+    expect(host.textContent).toContain('Ночь')
+    expect(host.textContent).toContain('AB12CD34EF')
+  })
+
   it('делает акцент на событиях с главной и отмечает открытый раздел', async () => {
     const host = mount()
     await clickLabel(host, 'Меню')

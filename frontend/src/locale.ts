@@ -1,10 +1,12 @@
-export const sections = ['home', 'games', 'events', 'media', 'communities', 'profile', 'notifications', 'settings'] as const
+export const sections = ['home', 'games', 'mafia', 'events', 'media', 'communities', 'profile', 'notifications', 'settings'] as const
 export type Section = typeof sections[number]
 export type Language = 'ru' | 'en'
 
 const ru = {
   home: 'Главная',
   games: 'Игры',
+  mafia: 'Мафия',
+  allGames: 'Все игры',
   events: 'События',
   media: 'Медиа',
   communities: 'Сообщества',
@@ -20,7 +22,6 @@ const ru = {
   noMatches: 'Разделы не найдены.',
   comingSoon: 'В разработке',
   quiz: 'Вечер викторин',
-  gamesEmpty: 'Игры появятся здесь после запуска.',
   eventsEmpty: 'В расписании пока нет событий.',
   mediaEmpty: 'Общая лента пока недоступна.',
   communitiesEmpty: 'У вас пока нет сообществ.',
@@ -60,6 +61,8 @@ export type Message = keyof typeof ru
 const en: Record<Message, string> = {
   home: 'Home',
   games: 'Games',
+  mafia: 'Mafia',
+  allGames: 'All games',
   events: 'Events',
   media: 'Media',
   communities: 'Communities',
@@ -75,7 +78,6 @@ const en: Record<Message, string> = {
   noMatches: 'No sections found.',
   comingSoon: 'In development',
   quiz: 'Quiz night',
-  gamesEmpty: 'Games will appear here when they launch.',
   eventsEmpty: 'There are no scheduled events yet.',
   mediaEmpty: 'The public feed is not available yet.',
   communitiesEmpty: 'You have no communities yet.',

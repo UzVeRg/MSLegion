@@ -5,6 +5,7 @@ import {
 } from './api'
 import AppIcon from './AppIcon.vue'
 import CommunityList from './CommunityList.vue'
+import MafiaGame from './MafiaGame.vue'
 import NavRow from './NavRow.vue'
 import { messages, sections, type Language, type Message, type Section } from './locale'
 import { getTelegramWebApp, requestTelegramWriteAccess, syncTelegramColors } from './telegram'
@@ -51,7 +52,7 @@ function savePreference(key: string, value: string) {
 const discover = ['games', 'events', 'media', 'communities'] as const
 const personal = ['notifications', 'settings'] as const
 const shortcuts = ['games', 'media', 'communities'] as const
-const emptyMessages = { games: 'gamesEmpty', events: 'eventsEmpty', media: 'mediaEmpty' } as const
+const emptyMessages = { events: 'eventsEmpty', media: 'mediaEmpty' } as const
 const page = ref<Section | 'search'>('home')
 const menuOpen = ref(false)
 const query = ref('')
@@ -265,7 +266,8 @@ onUnmounted(() => {
       </div>
       <div class="menu-group">
         <NavRow v-for="section in discover" :key="section" :section="section"
-          :label="copy[section]" :current="page === section" :featured="page === 'home' && section === 'events'"
+          :label="copy[section]" :current="page === section || (section === 'games' && page === 'mafia')"
+          :featured="page === 'home' && section === 'events'"
           @click="open(section)" />
       </div>
       <div class="menu-group">
@@ -295,6 +297,9 @@ onUnmounted(() => {
 
       <main class="content" aria-labelledby="page-title">
         <h1 id="page-title" ref="pageHeading" tabindex="-1">{{ copy[page] }}</h1>
+        <button v-if="page === 'mafia'" type="button" class="secondary mafia-back" @click="open('games')">
+          <AppIcon name="back" /> {{ copy.allGames }}
+        </button>
 
         <template v-if="page === 'home'">
           <button type="button" class="hero" @click="open('events')">
@@ -332,13 +337,20 @@ onUnmounted(() => {
           </label>
         </section>
 
-        <section v-else-if="page === 'games' || page === 'events' || page === 'media'" class="panel empty-section">
+        <div v-else-if="page === 'games'" class="menu-group">
+          <NavRow section="mafia" :label="copy.mafia" @click="open('mafia')" />
+        </div>
+
+        <section v-else-if="page === 'events' || page === 'media'" class="panel empty-section">
           <AppIcon :name="page" class="empty-icon" />
           <p class="muted">{{ copy[emptyMessages[page]] }}</p>
         </section>
 
         <template v-else-if="profile && session">
-          <section v-if="page === 'profile'" class="panel">
+          <MafiaGame v-if="page === 'mafia'" :key="session.token" :token="session.token"
+            :user-id="profile.id" :language="language" @expired="expireSession" />
+
+          <section v-else-if="page === 'profile'" class="panel">
             <div class="identity">
               <span class="avatar" aria-hidden="true">{{ initials || '–' }}</span>
               <div class="identity-text">

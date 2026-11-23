@@ -14,7 +14,7 @@ from zlib import crc32
 import pytest
 from alembic import command
 from alembic.config import Config
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Response
 from pydantic import SecretStr
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, make_url
@@ -97,7 +97,7 @@ def downgrade_to_base(connection: Connection) -> None:
         {
             "users", "integration_events", "user_sessions", "communities",
             "community_memberships", "community_servers", "domain_events", "community_posts",
-            "telegram_notifications",
+            "telegram_notifications", "mafia_rooms",
         }
     )
 
@@ -322,6 +322,94 @@ async def login_for_community_test(
     profile = await client.get("/api/v1/auth/me", headers=headers)
     assert profile.status_code == 200
     return headers, profile.json()["id"]
+
+
+def test_mafia_party_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(monkeypatch) as client:
+            path = "/api/v1/mafia/rooms"
+            people = [
+                await login_for_community_test(client, 810000 + number)
+                for number in range(6)
+            ]
+            (host, host_id), *guests, (outsider, _) = people
+            assert (await client.get(path)).status_code == 401
+            response = await client.post(path, headers=host, json={"mode": "classic"})
+            assert response.status_code == 201, response.text
+            assert response.headers["cache-control"] == "no-store"
+            state = response.json()
+            room = f"{path}/{state['code']}"
+
+            async def action(who: dict[str, str], **body) -> Response:
+                return await client.post(f"{room}/actions", headers=who, json=body)
+
+            assert (await client.get(room, headers=outsider)).status_code == 404
+            assert (await action(host, type="start")).status_code == 409
+
+            joined = await asyncio.gather(*[
+                action(headers, type="join")
+                for headers, _ in [*guests, guests[0]]
+            ])
+            assert all(result.status_code == 200 for result in joined)
+            assert (await client.get(path, headers=guests[0][0])).json()[0]["code"] == state["code"]
+            assert (await action(guests[0][0], type="start")).status_code == 403
+            response = await action(host, type="start")
+            assert response.status_code == 200, response.text
+            participants = {}
+            for headers, player_id in [(host, host_id), *guests]:
+                data = (await client.get(room, headers=headers)).json()
+                assert data["phase"] == "night"
+                assert len(data["players"]) == 5
+                assert all(player["role"] is None for player in data["players"])
+                participants.setdefault(data["role"], []).append((headers, player_id, data))
+            assert {role: len(players) for role, players in participants.items()} == {
+                "mafia": 1, "doctor": 1, "detective": 1, "citizen": 2,
+            }
+            mafia, mafia_id, night = participants["mafia"][0]
+            doctor, _, doctor_view = participants["doctor"][0]
+            detective, _, _ = participants["detective"][0]
+            citizen, citizen_id, _ = participants["citizen"][0]
+            assert (await action(outsider, type="join")).status_code == 409
+
+            phase = night["turn"]
+            assert (
+                await action(citizen, type="target", turn=phase, target_id=mafia_id)
+            ).status_code == 403
+            assert (
+                await action(mafia, type="chat", turn=phase, text="Приватное сообщение")
+            ).status_code == 200
+            assert (await client.get(room, headers=doctor)).json()["messages"] == []
+            actions = [(mafia, citizen_id), (doctor, citizen_id), (detective, mafia_id)]
+            results = await asyncio.gather(*[
+                action(headers, type="target", turn=phase, target_id=target)
+                for headers, target in actions
+            ])
+            assert all(result.status_code == 200 for result in results)
+            day = (await client.get(room, headers=detective)).json()
+            assert day["phase"] == "day"
+            assert day["history"][-1]["player_id"] is None
+            assert day["investigations"] == [{"round": 1, "player_id": mafia_id, "mafia": True}]
+            assert (await client.get(room, headers=doctor)).json()["investigations"] == []
+            late = await action(
+                doctor, type="target", turn=doctor_view["turn"], target_id=citizen_id,
+            )
+            assert late.status_code == 409
+            opened = await action(host, type="open_vote", turn=day["turn"])
+            assert opened.json()["phase"] == "vote"
+            vote = (await client.get(room, headers=citizen)).json()
+            for headers, player_id in [(host, host_id), *guests]:
+                result = await action(
+                    headers, type="target", turn=vote["turn"],
+                    target_id=None if player_id == mafia_id else mafia_id,
+                )
+                assert result.status_code == 200, result.text
+            finished = (await client.get(room, headers=citizen)).json()
+            assert finished["phase"] == "finished"
+            assert finished["winner"] == "town"
+            assert next(p for p in finished["players"] if p["id"] == mafia_id)["role"] == "mafia"
+            assert finished["messages"] == []
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
 
 
 def test_community_membership_with_real_postgres(monkeypatch) -> None:

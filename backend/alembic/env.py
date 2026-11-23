@@ -12,6 +12,7 @@ from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.communities import models as community_models  # noqa: F401
 from app.modules.domain_events import models as domain_event_models  # noqa: F401
 from app.modules.integrations import models as integration_models  # noqa: F401
+from app.modules.mafia import models as mafia_models  # noqa: F401
 from app.modules.telegram_notifications import models as telegram_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
 

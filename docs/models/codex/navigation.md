@@ -228,3 +228,10 @@
 - Операция — замена
 - Текст пункта — базовый HTTPS-стенд определяют `compose.staging.yml`, `backend/Dockerfile`, `.env.staging.example` и `deploy/staging/Caddyfile`. Caddy отдаёт frontend/dist и проксирует /api, /health и /ready в API. Одноразовая команда `backend/app/staging_migrate.py` обновляет схему и выдаёт прикладные права до запуска API. Разделение подключений по ролям задано в `deploy/staging/pg_hba.conf`, проверка ролей и восстановления — в `deploy/staging/tests/check_database_roles.py`. На VPS `deploy/staging/compose.proxy.yml` подключает только web к общей сети прокси и снимает публикацию портов приложения. В `deploy/staging/` находятся update.sh для развёртывания SHA, backup.sh для дампа PostgreSQL и mslegion-backup.timer с расписанием.
 - Источник — указанные файлы, `docs/team/development/staging.md`, `docs/team/development/testing.md` и `docs/team/development/vps.md`.
+
+
+## 2026-11-23 — D031 — NAV-23
+
+- Операция — добавление
+- Текст пункта — API «Мафии» подключён по /api/v1/mafia/rooms. В `backend/app/modules/mafia/router.py` проверяются сессия, членство, текущая фаза, права и лимиты. Блокировка строки комнаты в PostgreSQL сериализует действия. `game.py` определяет раздачу ролей, смену фаз, исходы и личное представление. `schemas.py` определяет команды и состояние, `models.py` и ревизия 20261123_0012 — хранение. Прикладной доступ выдаёт `backend/app/staging_migrate.py`. Проверки находятся в `backend/tests/test_mafia_rules.py` и сценарии test_mafia_party_with_real_postgres.
+- Источник — указанные файлы и `docs/team/reference/api.md`, раздел «Мафия».

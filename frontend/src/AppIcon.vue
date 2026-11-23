@@ -5,7 +5,7 @@ type Icon = Section | 'menu' | 'search' | 'back' | 'next'
 
 defineProps<{ name: Icon }>()
 
-const paths: Record<Icon, string> = {
+const paths: Record<Exclude<Icon, 'mafia'>, string> = {
   menu: 'M3 6h18M3 12h18M3 18h18',
   search: 'M20.5 20.5 16 16m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
   back: 'm15 5-7 7 7 7',
@@ -24,6 +24,6 @@ const paths: Record<Icon, string> = {
 <template>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65"
     stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
-    <path :d="paths[name]" />
+    <path :d="paths[name === 'mafia' ? 'games' : name]" />
   </svg>
 </template>
