@@ -242,3 +242,10 @@
 - Операция — добавление
 - Текст пункта — модуль `backend/app/modules/finance/` владеет балансом LC. В `router.py` находятся GET /api/v1/finance/wallet и POST /api/v1/finance/wallet/check-in, в `service.py` — календарь и награды, в `ledger.py` — блокировка счёта и идемпотентные операции. Таблицы lc_accounts и lc_entries добавляет ревизия 20261123_0013. Прикладные права стенда выдаёт `backend/app/staging_migrate.py`. Проверки — `test_lc_checkins_with_real_postgres` и `deploy/staging/tests/check_database_roles.py`.
 - Источник — указанные файлы, `docs/team/architecture/finance.md` и `docs/team/reference/api.md`.
+
+
+## 2026-11-23 — D033 — NAV-25
+
+- Операция — добавление
+- Текст пункта — публичный GET /api/v1/support находится в `backend/app/modules/support/router.py`. Контакты и FAQ проверяются в `content.py` и настраиваются через `backend/app/core/config.py`. Операции с тикетами находятся в `tickets.py`, таблицу support_tickets добавляет ревизия 20261123_0014. `backend/app/telegram/support_worker.py` обрабатывает команды отдельного бота через профиль Compose support. Проверки — `backend/tests/test_support.py`, интеграционный сценарий test_support_bot_tickets_are_private_and_replay_safe и `deploy/staging/tests/check_database_roles.py`.
+- Источник — указанные файлы и `docs/team/development/support.md`.

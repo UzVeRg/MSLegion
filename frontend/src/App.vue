@@ -7,6 +7,7 @@ import AppIcon from './AppIcon.vue'
 import CommunityList from './CommunityList.vue'
 import MafiaGame from './MafiaGame.vue'
 import ProfileWallet from './ProfileWallet.vue'
+import SupportPage from './SupportPage.vue'
 import NavRow from './NavRow.vue'
 import { messages, sections, type Language, type Message, type Section } from './locale'
 import { getTelegramWebApp, requestTelegramWriteAccess, syncTelegramColors } from './telegram'
@@ -51,7 +52,7 @@ function savePreference(key: string, value: string) {
 }
 
 const discover = ['games', 'events', 'media', 'communities'] as const
-const personal = ['notifications', 'settings'] as const
+const personal = ['notifications', 'faq', 'settings'] as const
 const shortcuts = ['games', 'media', 'communities'] as const
 const emptyMessages = { events: 'eventsEmpty', media: 'mediaEmpty' } as const
 const page = ref<Section | 'search'>('home')
@@ -328,6 +329,8 @@ onUnmounted(() => {
           </div>
           <p v-else class="panel muted" role="status">{{ copy.noMatches }}</p>
         </template>
+
+        <SupportPage v-else-if="page === 'faq'" :language="language" />
 
         <section v-else-if="page === 'settings'" class="panel">
           <label class="theme-setting" for="theme-select">

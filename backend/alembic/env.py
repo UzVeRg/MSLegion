@@ -14,6 +14,7 @@ from app.modules.domain_events import models as domain_event_models  # noqa: F40
 from app.modules.finance import models as finance_models  # noqa: F401
 from app.modules.integrations import models as integration_models  # noqa: F401
 from app.modules.mafia import models as mafia_models  # noqa: F401
+from app.modules.support import models as support_models  # noqa: F401
 from app.modules.telegram_notifications import models as telegram_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
 

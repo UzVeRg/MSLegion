@@ -37,6 +37,7 @@ from app.modules.auth.service import resolve_telegram_user_id
 from app.modules.auth.telegram import InvalidTelegramInitData
 from app.modules.finance.ledger import lock_account, post_entry
 from app.modules.users.exceptions import UserTelegramUnconfirmedError
+from app.telegram.support_worker import process_update
 
 settings = get_settings()
 COMMUNITY_TEST_BOT_TOKEN = "123456:team-test"
@@ -100,8 +101,65 @@ def downgrade_to_base(connection: Connection) -> None:
             "users", "integration_events", "user_sessions", "communities",
             "community_memberships", "community_servers", "domain_events", "community_posts",
             "telegram_notifications", "mafia_rooms", "lc_accounts", "lc_entries",
+            "support_tickets",
         }
     )
+
+
+def test_support_bot_tickets_are_private_and_replay_safe() -> None:
+    asyncio.run(check_support_bot_tickets(), loop_factory=asyncio.SelectorEventLoop)
+
+
+async def check_support_bot_tickets() -> None:
+    settings = get_settings().model_copy(update={"support_admin_ids": {303}})
+    received = []
+
+    async def send(user_id, message):
+        received.append((user_id, message))
+        return "failed" if user_id == 101 and message.startswith("Ответ на обращение") else "sent"
+
+    async with isolated_schema() as engine:
+        async with engine.begin() as connection:
+            await connection.run_sync(migrate_and_check)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+        async def command(user_id, message_id, body, chat_type="private"):
+            async with sessions() as session:
+                await process_update({"message": {
+                    "chat": {"type": chat_type, "id": user_id},
+                    "from": {"id": user_id},
+                    "message_id": message_id,
+                    "text": body,
+                }}, session, settings, send)
+
+        await command(101, 1, "/new Тестовое обращение")
+        confirmation = received[-1][1]
+        assert "Обращение №1 принято" in confirmation
+        await command(101, 1, "/new Тестовое обращение")
+        assert received[-1] == (101, confirmation)
+
+        await command(202, 2, "/ticket 1")
+        assert received[-1] == (202, "Обращение не найдено.")
+        await command(202, 3, "/reply 1 Посторонний ответ")
+        assert "/reply" not in received[-1][1]
+        await command(303, 4, "/queue")
+        assert "Тестовое обращение" in received[-1][1]
+        assert received[-1][1].count("/ticket") == 1
+
+        await command(303, 5, "/reply 1 Ответ команды")
+        assert received[-2] == (101, "Ответ на обращение №1\n\nОтвет команды")
+        assert "Ответ сохранён" in received[-1][1]
+        await command(303, 5, "/reply 1 Ответ команды")
+        assert received[-1][0] == 303
+        assert sum(msg.startswith("Ответ на обращение") for _, msg in received) == 1
+        await command(303, 6, "/close 1")
+        await command(303, 7, "/queue")
+        assert received[-1] == (303, "Обращений нет.")
+        await command(101, 8, "/ticket 1")
+        assert "Закрыто" in received[-1][1]
+        assert "Ответ команды" in received[-1][1]
+        await command(303, 9, "/ticket 1", chat_type="group")
+        assert received[-1][0] == 101
 
 
 def test_session_limit_migration_with_real_postgres() -> None:

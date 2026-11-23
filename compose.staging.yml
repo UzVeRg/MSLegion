@@ -42,6 +42,8 @@ services:
       DATABASE_URL: postgresql+psycopg://mslegion_api@postgres:5432/mslegion_staging
       PGPASSWORD: ${APP_DATABASE_PASSWORD:?Задайте отдельный пароль роли API}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      SUPPORT_FAQ: ${SUPPORT_FAQ:-null}
+      SUPPORT_CONTACTS: ${SUPPORT_CONTACTS:-null}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       CALLBACK_API_KEY: ${CALLBACK_API_KEY:-}
       SERVER_STATUS_API_KEY: ${SERVER_STATUS_API_KEY:-}
@@ -54,6 +56,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+
+  support-bot:
+    profiles: ["support"]
+    image: ${COMPOSE_PROJECT_NAME}-api
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgresql+psycopg://mslegion_api@postgres:5432/mslegion_staging
+      PGPASSWORD: ${APP_DATABASE_PASSWORD:?Задайте отдельный пароль роли API}
+      SUPPORT_BOT_TOKEN: ${SUPPORT_BOT_TOKEN:-}
+      SUPPORT_ADMIN_IDS: ${SUPPORT_ADMIN_IDS:-[]}
+      SUPPORT_FAQ: ${SUPPORT_FAQ:-null}
+      SUPPORT_CONTACTS: ${SUPPORT_CONTACTS:-null}
+    command: ["python", "-m", "app.telegram.support_worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   web:
     image: caddy:2-alpine

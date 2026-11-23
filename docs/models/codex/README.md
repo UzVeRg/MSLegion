@@ -121,3 +121,10 @@
 - Операция — замена
 - Текст пункта — для внутренней валюты LC открой [архитектуру финансового модуля](../../team/architecture/finance.md), PROJ-27 в [project.md](project.md), NAV-24 в [navigation.md](navigation.md) и FRONT-09 в [frontend.md](frontend.md). Утверждённый знак и лист референсов смотри в [дизайн-документации](../../team/design/currency-icon.md).
 - Источник — указанные документы и `backend/app/modules/finance/`.
+
+
+## 2026-11-23 — D014 — INDEX-13
+
+- Операция — добавление
+- Текст пункта — для общего FAQ, контактов и Telegram-обращений открой PROJ-28 в [project.md](project.md), NAV-25 в [navigation.md], FRONT-10 в [frontend.md](frontend.md) и [руководство по настройке поддержки](../../team/development/support.md).
+- Источник — указанные документы, `backend/app/modules/support/` и `backend/app/telegram/support_worker.py`.

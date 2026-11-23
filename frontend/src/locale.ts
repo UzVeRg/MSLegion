@@ -1,4 +1,4 @@
-export const sections = ['home', 'games', 'mafia', 'events', 'media', 'communities', 'profile', 'notifications', 'settings'] as const
+export const sections = ['home', 'games', 'mafia', 'events', 'media', 'communities', 'profile', 'notifications', 'faq', 'settings'] as const
 export type Section = typeof sections[number]
 export type Language = 'ru' | 'en'
 
@@ -12,6 +12,14 @@ const ru = {
   communities: 'Сообщества',
   profile: 'Профиль',
   notifications: 'Уведомления',
+  faq: 'FAQ',
+  supportQuestions: 'Частые вопросы',
+  supportContacts: 'Связь с администрацией',
+  supportLoading: 'Загружаем раздел поддержки…',
+  supportError: 'Не удалось загрузить раздел поддержки.',
+  supportNoQuestions: 'Ответы пока не опубликованы.',
+  supportNoContacts: 'Контакты пока не опубликованы.',
+  supportEmail: 'Почта',
   settings: 'Настройки',
   menu: 'Меню',
   closeMenu: 'Закрыть меню',
@@ -68,6 +76,14 @@ const en: Record<Message, string> = {
   communities: 'Communities',
   profile: 'Profile',
   notifications: 'Notifications',
+  faq: 'FAQ',
+  supportQuestions: 'Frequently asked questions',
+  supportContacts: 'Contact the administrators',
+  supportLoading: 'Loading support…',
+  supportError: 'Unable to load support.',
+  supportNoQuestions: 'There are no published answers yet.',
+  supportNoContacts: 'There are no published contacts yet.',
+  supportEmail: 'Email',
   settings: 'Settings',
   menu: 'Menu',
   closeMenu: 'Close menu',

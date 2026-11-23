@@ -1,3 +1,5 @@
+import type { Language } from './locale'
+
 interface SessionResponse {
   access_token: string
   expires_at: string
@@ -14,6 +16,16 @@ export class ApiError extends Error {
   constructor(readonly status: number) {
     super(`Ошибка API (HTTP ${status})`)
   }
+}
+
+export interface SupportContent {
+  questions: { question: string; answer: string }[]
+  contacts: { channel: 'telegram' | 'discord' | 'email'; label: string; url: string }[]
+}
+
+export async function getSupport(language: Language, signal: AbortSignal): Promise<SupportContent> {
+  const response = await request(`/support?language=${language}`, { signal })
+  return response.json()
 }
 
 async function request(path: string, options: RequestInit): Promise<Response> {

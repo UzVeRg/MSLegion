@@ -6,6 +6,7 @@ interface TelegramWebApp {
   setBottomBarColor?(color: string): void
   isVersionAtLeast?(version: string): boolean
   requestWriteAccess?(callback: (allowed: boolean) => void): void
+  openTelegramLink?(url: string): void
 }
 
 declare global {

@@ -1,9 +1,11 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.modules.support.content import Language, Question, SupportContacts
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -22,6 +24,12 @@ class Settings(BaseSettings):
     callback_api_key: str | None = Field(default=None, repr=False)
     server_status_api_key: str | None = Field(default=None, repr=False)
     telegram_bot_token: SecretStr | None = None
+    support_bot_token: SecretStr | None = None
+    support_admin_ids: set[Annotated[int, Field(strict=True, gt=0, lt=2**52)]] = Field(
+        default_factory=set, repr=False
+    )
+    support_contacts: SupportContacts | None = None
+    support_faq: dict[Language, Annotated[list[Question], Field(max_length=25)]] | None = None
 
     test_database_url: str = "postgresql+psycopg://mslegion:mslegion@127.0.0.1:5434/mslegion_test"
     run_integration_tests: bool = False
@@ -45,7 +53,7 @@ class Settings(BaseSettings):
             )
         return value
 
-    @field_validator("telegram_bot_token")
+    @field_validator("telegram_bot_token", "support_bot_token")
     @classmethod
     def validate_bot_token(cls, value: SecretStr | None) -> SecretStr | None:
         if value is None or not (token := value.get_secret_value()):

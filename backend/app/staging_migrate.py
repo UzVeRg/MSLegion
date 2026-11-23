@@ -56,7 +56,7 @@ def grant_api_access(connection: Connection) -> None:
         GRANT SELECT, INSERT ON public.users, public.user_sessions, public.communities,
               public.community_memberships, public.community_servers, public.community_posts,
               public.integration_events, public.telegram_notifications, public.domain_events,
-              public.mafia_rooms, public.lc_accounts, public.lc_entries
+              public.mafia_rooms, public.lc_accounts, public.lc_entries, public.support_tickets
               TO mslegion_api;
         GRANT DELETE ON public.community_memberships, public.community_servers,
               public.community_posts, public.user_sessions TO mslegion_api;
@@ -72,6 +72,7 @@ def grant_api_access(connection: Connection) -> None:
         GRANT UPDATE (state, attempted_at) ON public.telegram_notifications TO mslegion_api;
         GRANT UPDATE (state, updated_at) ON public.mafia_rooms TO mslegion_api;
         GRANT UPDATE (balance, last_check_in, streak) ON public.lc_accounts TO mslegion_api;
+        GRANT UPDATE (answer, answered_by, closed_at) ON public.support_tickets TO mslegion_api;
     """)
 
 

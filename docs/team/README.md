@@ -6,6 +6,7 @@
 | Подключиться к VPS, обновить стенд или проверить резервные копии | [Руководство по VPS](development/vps.md) · [Шаблон SSH](development/ssh_config.example) |
 | Запустить отдельный HTTPS-стенд | [HTTPS-стенд](development/staging.md) |
 | Запустить быстрые или интеграционные тесты | [Тестирование backend](development/testing.md) |
+| Настроить FAQ, контакты и Telegram-бота поддержки | [Поддержка MSLegion](development/support.md) |
 | Разобраться в устройстве приложения | [Архитектура](architecture/overview.md) |
 | Узнать, какие технологии используются и какие запланированы | [Технологический стек](architecture/stack.md) |
 | Посмотреть маршруты и требования к HTTP-запросам | [Справочник HTTP API](reference/api.md) |

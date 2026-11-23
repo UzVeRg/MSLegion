@@ -109,6 +109,37 @@ describe('Оформление Mini App', () => {
   })
 })
 
+describe('FAQ', () => {
+  it.each(['graphite', 'neo-gothic', 'network', 'underground'])(
+    'открывает публичный FAQ, ответы и контакты в теме %s', async (theme) => {
+      localStorage.setItem('mslegion.theme', theme)
+      cleanup.push(() => localStorage.removeItem('mslegion.theme'))
+      const fetch = vi.fn(async () => Response.json({
+        questions: [{ question: 'Как получить LC?', answer: 'Ежедневно отмечайтесь в профиле.' }],
+        contacts: [{ channel: 'telegram', label: '@MsLegionSupport_bot', url: 'https://t.me/MsLegionSupport_bot' }],
+      }))
+      vi.stubGlobal('fetch', fetch)
+      const host = mount()
+      await clickLabel(host, 'Меню')
+      const items = Array.from(host.querySelectorAll('.nav-row')).map((row) => row.textContent?.trim())
+      const index = items.indexOf('FAQ')
+      expect(items.slice(index - 1, index + 2)).toEqual(['Уведомления', 'FAQ', 'Настройки'])
+      await clickLabel(host, 'FAQ')
+      await setImmediate()
+      expect(document.documentElement.dataset.theme).toBe(theme)
+      expect(fetch).toHaveBeenCalledWith('/api/v1/support?language=ru', expect.anything())
+      expect(Array.from(host.querySelectorAll('main h2')).map((item) => item.textContent)).toEqual([
+        'Частые вопросы', 'Связь с администрацией',
+      ])
+      const question = Array.from(host.querySelectorAll('main summary')).find((item) =>
+        item.textContent?.trim() === 'Как получить LC?',
+      )
+      expect(question?.parentElement?.textContent).toContain('Ежедневно отмечайтесь в профиле.')
+      expect(host.querySelector('main a')?.getAttribute('href')).toBe('https://t.me/MsLegionSupport_bot')
+    },
+  )
+})
+
 describe('Навигация Mini App', () => {
   afterEach(() => {
     localStorage.removeItem('mslegion.language')

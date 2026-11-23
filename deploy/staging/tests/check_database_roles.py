@@ -35,6 +35,8 @@ def check_inside_api():
             "DELETE FROM users WHERE false",
             "UPDATE lc_entries SET amount = amount WHERE false",
             "DELETE FROM lc_entries WHERE false",
+            "UPDATE support_tickets SET description = description WHERE false",
+            "DELETE FROM support_tickets WHERE false",
         ):
             try:
                 db.execute(statement)
@@ -42,6 +44,15 @@ def check_inside_api():
                 pass
             else:
                 raise AssertionError(f"Операция разрешена роли API: {statement}")
+        ticket = db.execute(
+            "INSERT INTO support_tickets (author_id, message_id, description) "
+            "VALUES (42, 1, 'Проверка прав поддержки') RETURNING id"
+        ).fetchone()[0]
+        assert db.execute(
+            "UPDATE support_tickets SET answer = 'Ответ', answered_by = 123, closed_at = now() "
+            "WHERE id = %s RETURNING answer",
+            (ticket,),
+        ).fetchone() == ("Ответ",)
 
     try:
         psycopg.connect(**(connection | {"dbname": "restore_test"})).close()
