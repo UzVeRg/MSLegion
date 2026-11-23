@@ -17,7 +17,7 @@ export class ApiError extends Error {
 }
 
 async function request(path: string, options: RequestInit): Promise<Response> {
-  const response = await fetch(`/api/v1/auth${path}`, {
+  const response = await fetch(`/api/v1${path}`, {
     ...options,
     credentials: 'omit',
     redirect: 'error',
@@ -27,7 +27,7 @@ async function request(path: string, options: RequestInit): Promise<Response> {
 }
 
 export async function exchangeTelegramData(initData: string, signal: AbortSignal): Promise<SessionResponse> {
-  const response = await request('/telegram', {
+  const response = await request('/auth/telegram', {
     method: 'POST',
     body: JSON.stringify({ init_data: initData }),
     headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,7 @@ export async function exchangeTelegramData(initData: string, signal: AbortSignal
 }
 
 export async function fetchProfile(token: string, signal: AbortSignal): Promise<Profile> {
-  const response = await request('/me', {
+  const response = await request('/auth/me', {
     headers: { Authorization: `Bearer ${token}` },
     signal,
   })
@@ -45,7 +45,7 @@ export async function fetchProfile(token: string, signal: AbortSignal): Promise<
 }
 
 export async function revokeSession(token: string, signal: AbortSignal): Promise<void> {
-  await request('/logout', {
+  await request('/auth/logout', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     signal,
@@ -55,10 +55,26 @@ export async function revokeSession(token: string, signal: AbortSignal): Promise
 export async function setTelegramNotifications(
   token: string, enabled: boolean, signal: AbortSignal,
 ): Promise<{ enabled: boolean }> {
-  const response = await request('/me/telegram-notifications', {
+  const response = await request('/auth/me/telegram-notifications', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
+    signal,
+  })
+  return response.json()
+}
+
+export interface Community {
+  id: string
+  name: string
+  owner_id: string
+}
+
+export async function fetchCommunities(
+  token: string, offset: number, limit: number, signal: AbortSignal,
+): Promise<Community[]> {
+  const response = await request(`/communities?offset=${offset}&limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
     signal,
   })
   return response.json()

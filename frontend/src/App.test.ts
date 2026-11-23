@@ -1,6 +1,6 @@
 import { setImmediate } from 'node:timers/promises'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp } from 'vue'
+import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 
 const profile = {
@@ -48,9 +48,23 @@ function openMiniApp(requestWriteAccess?: (callback: (allowed: boolean) => void)
 }
 
 function clickAction(host: HTMLElement) {
-  const button = host.querySelector('button')
+  const button = host.querySelector<HTMLButtonElement>('main .primary, main .secondary')
   if (!button) throw new Error('Кнопка действия отсутствует')
   button.click()
+}
+
+async function clickLabel(host: HTMLElement, label: string) {
+  const element = Array.from(host.querySelectorAll<HTMLElement>('button, a')).find((item) =>
+    item.getAttribute('aria-label') === label || item.textContent?.trim() === label,
+  )
+  if (!element) throw new Error(`Не найден элемент «${label}»`)
+  element.click()
+  await nextTick()
+}
+
+async function openPage(host: HTMLElement, label: string) {
+  await clickLabel(host, 'Меню')
+  await clickLabel(host, label)
 }
 
 afterEach(() => {
@@ -65,16 +79,18 @@ describe('Оформление Mini App', () => {
     delete document.documentElement.dataset.theme
   })
 
-  it('использует чёрный графит при неизвестной сохранённой теме', () => {
+  it('использует чёрный графит при неизвестной сохранённой теме', async () => {
     localStorage.setItem('mslegion.theme', 'unknown')
-    const settings = mount().querySelector('details')
-    expect(settings?.querySelector('summary')?.textContent).toBe('Настройки')
-    expect(settings?.querySelector('select')?.value).toBe('graphite')
+    const host = mount()
+    await openPage(host, 'Настройки')
+    expect(host.querySelector<HTMLSelectElement>('#theme-select')?.value).toBe('graphite')
     expect(document.documentElement.dataset.theme).toBe('graphite')
   })
 
   it('применяет каждую тему и восстанавливает последнюю при открытии', async () => {
-    const select = mount().querySelector('select')
+    const host = mount()
+    await openPage(host, 'Настройки')
+    const select = host.querySelector<HTMLSelectElement>('#theme-select')
     expect(select).not.toBeNull()
     for (const theme of ['neo-gothic', 'network', 'underground', 'graphite', 'network']) {
       select!.value = theme
@@ -83,7 +99,74 @@ describe('Оформление Mini App', () => {
       expect(document.documentElement.dataset.theme).toBe(theme)
     }
 
-    expect(mount().querySelector('select')?.value).toBe('network')
+    const reopened = mount()
+    await openPage(reopened, 'Настройки')
+    expect(reopened.querySelector<HTMLSelectElement>('#theme-select')?.value).toBe('network')
+  })
+})
+
+describe('Навигация Mini App', () => {
+  afterEach(() => {
+    localStorage.removeItem('mslegion.language')
+    document.documentElement.lang = 'ru'
+  })
+
+  it('открывает главную и переходит в раздел из меню', async () => {
+    const host = mount()
+    expect(host.querySelector('h1')?.textContent).toBe('Главная')
+    await clickLabel(host, 'Меню')
+    const menu = host.querySelector('nav')
+    expect(menu?.textContent).toContain('Профиль')
+    for (const label of ['Игры', 'События', 'Медиа', 'Сообщества', 'Уведомления', 'Настройки']) {
+      expect(menu?.textContent).toContain(label)
+    }
+    await clickLabel(host, 'События')
+    expect(host.querySelector('h1')?.textContent).toBe('События')
+    await clickLabel(host, 'MSLegion')
+    expect(host.querySelector('h1')?.textContent).toBe('Главная')
+  })
+
+  it('фильтрует разделы и открывает результат поиска', async () => {
+    const host = mount()
+    await clickLabel(host, 'Поиск')
+    const input = host.querySelector<HTMLInputElement>('input[type="search"]')!
+    input.value = '  СОБЫ '
+    input.dispatchEvent(new Event('input'))
+    await nextTick()
+    expect(host.querySelector('main')?.textContent).toContain('События')
+    expect(host.querySelector('main')?.textContent).not.toContain('Игры')
+    await clickLabel(host, 'События')
+    expect(host.querySelector('h1')?.textContent).toBe('События')
+  })
+
+  it('переводит интерфейс и сохраняет язык при повторном запуске', async () => {
+    const host = mount()
+    const select = host.querySelector<HTMLSelectElement>('#language-select')!
+    select.value = 'en'
+    select.dispatchEvent(new Event('change'))
+    await nextTick()
+    expect(document.documentElement.lang).toBe('en')
+    expect(host.querySelector('h1')?.textContent).toBe('Home')
+    expect(mount().querySelector('h1')?.textContent).toBe('Home')
+    await clickLabel(host, 'Menu')
+    expect(host.querySelector('nav')?.textContent).toContain('Communities')
+  })
+
+  it('загружает сообщества пользователя при открытии вкладки', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(loginResponse())
+      .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json([{ id: 'community-1', name: 'Клуб', owner_id: profile.id }]))
+    vi.stubGlobal('fetch', request)
+    const { host } = openMiniApp()
+    await setImmediate()
+    await openPage(host, 'Сообщества')
+    await setImmediate()
+    expect(request).toHaveBeenLastCalledWith(
+      '/api/v1/communities?offset=0&limit=50',
+      expect.objectContaining({ headers: { Authorization: 'Bearer test-session' } }),
+    )
+    expect(host.querySelector('main')?.textContent).toContain('Клуб')
   })
 })
 
@@ -98,6 +181,7 @@ describe('Telegram Mini App', () => {
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp(permission)
     await setImmediate()
+    await openPage(host, 'Уведомления')
     const button = host.querySelector<HTMLButtonElement>('[data-notification-toggle]')!
     button.click()
     await setImmediate()
@@ -117,7 +201,7 @@ describe('Telegram Mini App', () => {
     const request = vi.fn()
     vi.stubGlobal('fetch', request)
     const host = mount()
-    await setImmediate()
+    await openPage(host, 'Профиль')
     expect(host.textContent).toContain('Откройте MSLegion в Telegram')
     expect(request).not.toHaveBeenCalled()
   })
@@ -129,6 +213,7 @@ describe('Telegram Mini App', () => {
       .mockResolvedValueOnce(Response.json(profile))
     vi.stubGlobal('fetch', request)
     const { host, ready } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     expect(host.textContent).toContain('Входим через Telegram')
     login.resolve(loginResponse())
@@ -155,6 +240,7 @@ describe('Telegram Mini App', () => {
       .mockResolvedValueOnce(Response.json(profile))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     await vi.advanceTimersByTimeAsync(1_000)
     expect(host.textContent).toContain('Сессия завершилась')
@@ -168,6 +254,7 @@ describe('Telegram Mini App', () => {
     const request = vi.fn().mockResolvedValueOnce(Response.json({}, { status: 401 }))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     expect(host.textContent).toContain('Откройте приложение заново в Telegram')
     expect(request).toHaveBeenCalledOnce()
@@ -180,6 +267,7 @@ describe('Telegram Mini App', () => {
       .mockResolvedValueOnce(Response.json(profile))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     expect(host.textContent).toContain('Не удалось загрузить профиль')
     clickAction(host)
@@ -197,6 +285,7 @@ describe('Telegram Mini App', () => {
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     clickAction(host)
     await setImmediate()
@@ -219,6 +308,7 @@ describe('Telegram Mini App', () => {
       .mockResolvedValueOnce(Response.json(profile))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
     await setImmediate()
     clickAction(host)
     await vi.advanceTimersByTimeAsync(1_000)
