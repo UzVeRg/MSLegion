@@ -7,7 +7,7 @@ import AppIcon from './AppIcon.vue'
 import CommunityList from './CommunityList.vue'
 import NavRow from './NavRow.vue'
 import { messages, sections, type Language, type Message, type Section } from './locale'
-import { getTelegramWebApp, requestTelegramWriteAccess } from './telegram'
+import { getTelegramWebApp, requestTelegramWriteAccess, syncTelegramColors } from './telegram'
 
 type Phase = 'outside' | 'loading' | 'profile' | 'expired' | 'reopen' | 'error' | 'signed-out'
 
@@ -24,6 +24,7 @@ document.documentElement.lang = language.value
 watch(theme, (value) => {
   document.documentElement.dataset.theme = value
   savePreference(themeKey, value)
+  syncTelegramColors()
 })
 watch(language, (value) => {
   document.documentElement.lang = value
@@ -55,7 +56,7 @@ const page = ref<Section | 'search'>('home')
 const menuOpen = ref(false)
 const query = ref('')
 const menuTrigger = ref<HTMLButtonElement>()
-const menuBack = ref<HTMLButtonElement>()
+const menuPanel = ref<HTMLElement>()
 const searchField = ref<HTMLInputElement>()
 const pageHeading = ref<HTMLElement>()
 let returnPage: Section = 'home'
@@ -66,7 +67,7 @@ const matches = computed(() => {
 })
 
 watch(menuOpen, (open) => {
-  if (open) menuBack.value?.focus()
+  if (open) menuPanel.value?.focus()
 }, { flush: 'post' })
 
 function open(section: Section) {
@@ -116,8 +117,13 @@ const statusText = computed(() => {
   return label ? copy.value[label] : ''
 })
 
+const profileName = computed(() => {
+  const name = profile.value?.display_name.trim()
+  return name && /[\p{L}\p{N}\p{S}]/u.test(name) ? name : ''
+})
+
 const initials = computed(() =>
-  profile.value?.display_name.trim().split(/\s+/).slice(0, 2)
+  profileName.value.split(/\s+/).slice(0, 2)
     .map((word) => Array.from(word)[0]).join('').toLocaleUpperCase(language.value),
 )
 
@@ -230,6 +236,7 @@ async function toggleNotifications() {
 
 onMounted(() => {
   const telegram = getTelegramWebApp()
+  syncTelegramColors()
   telegram?.ready()
   if (telegram?.initData) void signIn()
 })
@@ -242,24 +249,24 @@ onUnmounted(() => {
 
 <template>
   <div class="shell" @keydown.esc="escape">
-    <nav v-if="menuOpen" class="context-menu" :aria-label="copy.menu">
+    <nav v-if="menuOpen" ref="menuPanel" class="context-menu" :aria-label="copy.menu" tabindex="-1">
       <div class="menu-top">
-        <button ref="menuBack" type="button" class="icon-button menu-back" :aria-label="copy.closeMenu" @click="closeMenu">
+        <button type="button" class="icon-button menu-back" :aria-label="copy.closeMenu" @click="closeMenu">
           <AppIcon name="back" />
         </button>
         <button type="button" class="menu-profile" :aria-label="copy.profile" @click="open('profile')">
-          <span class="avatar menu-avatar" aria-hidden="true"><AppIcon name="mark" /></span>
+          <span class="menu-crest" aria-hidden="true"></span>
           <span class="identity-text">
-            <strong v-if="profile">{{ profile.display_name }}</strong>
+            <strong v-if="profileName">{{ profileName }}</strong>
             <strong v-else>{{ copy.profile }}</strong>
-            <span v-if="profile" class="muted">{{ copy.profile }}</span>
+            <span v-if="profileName" class="menu-caption">{{ copy.profile }}</span>
           </span>
-          <AppIcon name="next" class="nav-next" />
         </button>
       </div>
       <div class="menu-group">
         <NavRow v-for="section in discover" :key="section" :section="section"
-          :label="copy[section]" :current="page === section" @click="open(section)" />
+          :label="copy[section]" :current="page === section" :featured="page === 'home' && section === 'events'"
+          @click="open(section)" />
       </div>
       <div class="menu-group">
         <NavRow v-for="section in personal" :key="section" :section="section"
@@ -276,7 +283,10 @@ onUnmounted(() => {
           <option value="ru" lang="ru" aria-label="Русский">RU</option>
           <option value="en" lang="en" aria-label="English">EN</option>
         </select>
-        <button type="button" class="wordmark" @click="open('home')">MSLegion</button>
+        <button type="button" class="wordmark" @click="open('home')">
+          <span class="visually-hidden">MSLegion</span>
+          <span class="wordmark-art" aria-hidden="true"></span>
+        </button>
         <button type="button" class="icon-button search-trigger" :aria-label="page === 'search' ? copy.back : copy.search"
           @click="toggleSearch">
           <AppIcon :name="page === 'search' ? 'back' : 'search'" />
@@ -289,10 +299,10 @@ onUnmounted(() => {
         <template v-if="page === 'home'">
           <button type="button" class="hero" @click="open('events')">
             <span class="hero-content">
-              <span class="hero-tag">{{ copy.events }} · {{ copy.comingSoon }}</span>
+              <span class="hero-tag">{{ copy.events }}</span>
               <strong>{{ copy.quiz }}</strong>
+              <span class="hero-status">{{ copy.comingSoon }}</span>
             </span>
-            <AppIcon name="next" class="hero-next" />
           </button>
           <div class="home-links">
             <NavRow v-for="section in shortcuts" :key="section" :section="section"
@@ -332,7 +342,7 @@ onUnmounted(() => {
             <div class="identity">
               <span class="avatar" aria-hidden="true">{{ initials || '–' }}</span>
               <div class="identity-text">
-                <p class="name">{{ profile.display_name }}</p>
+                <p class="name">{{ profileName || copy.profile }}</p>
                 <p v-if="profile.telegram_id !== null" class="muted">Telegram ID {{ profile.telegram_id }}</p>
               </div>
             </div>

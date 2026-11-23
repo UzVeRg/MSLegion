@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Section } from './locale'
 
-type Icon = Section | 'menu' | 'search' | 'back' | 'next' | 'mark'
+type Icon = Section | 'menu' | 'search' | 'back' | 'next'
 
 defineProps<{ name: Icon }>()
 
@@ -10,7 +10,6 @@ const paths: Record<Icon, string> = {
   search: 'M20.5 20.5 16 16m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
   back: 'm15 5-7 7 7 7',
   next: 'm9 5 7 7-7 7',
-  mark: 'm3 4 9 5 9-5-4 11-5 5-5-5L3 4Zm9 5v11',
   home: 'm3 10 9-7 9 7v10H3V10Zm6 10v-7h6v7',
   games: 'M7 7h10a4 4 0 0 1 4 3l1 5a2.5 2.5 0 0 1-4 2l-2.5-2H8.5L6 17a2.5 2.5 0 0 1-4-2l1-5a4 4 0 0 1 4-3Zm0 3v4m-2-2h4m6 0h.01m3 0h.01',
   events: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-2v4m10-4v4M3 10h18M8 14h.01M12 14h.01m4 0h.01M8 17h.01m4 0h.01',

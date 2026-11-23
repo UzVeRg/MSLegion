@@ -126,6 +126,18 @@ describe('Навигация Mini App', () => {
     expect(host.querySelector('h1')?.textContent).toBe('Главная')
   })
 
+  it('делает акцент на событиях с главной и отмечает открытый раздел', async () => {
+    const host = mount()
+    await clickLabel(host, 'Меню')
+    expect(host.querySelector('.nav-row--featured')?.textContent?.trim()).toBe('События')
+    expect(host.querySelector('nav [aria-current]')).toBeNull()
+
+    await clickLabel(host, 'Игры')
+    await clickLabel(host, 'Меню')
+    expect(host.querySelector('.nav-row--featured')).toBeNull()
+    expect(host.querySelector('nav [aria-current="page"]')?.textContent?.trim()).toBe('Игры')
+  })
+
   it('фильтрует разделы и открывает результат поиска', async () => {
     const host = mount()
     await clickLabel(host, 'Поиск')
