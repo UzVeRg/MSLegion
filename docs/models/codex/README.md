@@ -87,3 +87,10 @@
 - Операция — замена
 - Текст пункта — Назначение проекта, реализованное состояние и принятые решения смотри в [project.md](project.md). Исходники backend, HTTP-контрактов, миграций, локального запуска, CI и публичного стенда перечислены в [navigation.md](navigation.md). Для SSH-доступа, размещения файлов, выпуска и диагностики открывай [руководство по VPS](../../team/development/vps.md) и [шаблон SSH](../../team/development/ssh_config.example). Отдельный HTTPS-стенд описан в [руководстве по staging](../../team/development/staging.md). Для Mini App открой [frontend.md](frontend.md), для сообществ и членства — [communities.md](communities.md). Вход и сессии описаны в [архитектуре](../../team/architecture/overview.md), порядок реализации — в [плане развития](../../team/planning/roadmap.md). Применяй дополнения и проверяй факты по источникам.
 - Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md` и `docs/team/development/vps.md`.
+
+
+## 2026-11-23 — D009 — INDEX-01
+
+- Операция — замена
+- Текст пункта — Назначение проекта, реализованное состояние и принятые решения смотри в [project.md](project.md). Исходники backend, HTTP-контрактов, миграций, локального запуска, CI и публичного стенда перечислены в [navigation.md](navigation.md). Для SSH-доступа, размещения файлов, выпуска и диагностики открывай [руководство по VPS](../../team/development/vps.md) и [шаблон SSH](../../team/development/ssh_config.example). Отдельный HTTPS-стенд описан в [руководстве по staging](../../team/development/staging.md). Для Mini App открой [frontend.md](frontend.md), для сообществ и членства — [communities.md](communities.md). Вход и сессии описаны в [архитектуре](../../team/architecture/overview.md), порядок реализации — в [плане развития](../../team/planning/roadmap.md), исходные 50 идей — в [каталоге возможностей](../../team/planning/feature-catalog.md). Применяй дополнения и проверяй факты по источникам.
+- Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md`, `docs/team/development/vps.md` и `docs/team/planning/feature-catalog.md`.
