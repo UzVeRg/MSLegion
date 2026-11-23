@@ -108,3 +108,9 @@
 - Операция — замена
 - Текст пункта — назначение проекта, реализованное состояние и принятые решения смотри в [project.md](project.md). Исходники backend, HTTP-контрактов, миграций, локального запуска, CI и публичного стенда перечислены в [navigation.md](navigation.md). Для SSH, выпуска и диагностики открывай [руководство по VPS](../../team/development/vps.md) и [шаблон SSH](../../team/development/ssh_config.example). Отдельный HTTPS-стенд описан в [руководстве по staging](../../team/development/staging.md). Для Mini App открой [frontend.md](frontend.md), для сообществ — [communities.md](communities.md), для игры «Мафия» — [mafia.md](mafia.md). Вход и сессии описаны в [архитектуре](../../team/architecture/overview.md), порядок реализации — в [плане развития](../../team/planning/roadmap.md), исходные 50 идей — в [каталоге возможностей](../../team/planning/feature-catalog.md). Применяй дополнения и проверяй факты по источникам.
 - Источник — `docs/models/codex/project.md`, `docs/models/codex/navigation.md` и `docs/models/codex/mafia.md`.
+
+## 2026-11-23 — D012 — INDEX-12
+
+- Операция — добавление
+- Текст пункта — для внутреннего баланса профиля открой PROJ-27 в [project.md](project.md). Утверждённый знак валюты и лист референсов смотри в [дизайн-документации](../../team/design/currency-icon.md).
+- Источник — `docs/team/design/currency-icon.md` и указание пользователя от 23.11.2026.
