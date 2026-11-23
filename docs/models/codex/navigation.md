@@ -235,3 +235,10 @@
 - Операция — добавление
 - Текст пункта — API «Мафии» подключён по /api/v1/mafia/rooms. В `backend/app/modules/mafia/router.py` проверяются сессия, членство, текущая фаза, права и лимиты. Блокировка строки комнаты в PostgreSQL сериализует действия. `game.py` определяет раздачу ролей, смену фаз, исходы и личное представление. `schemas.py` определяет команды и состояние, `models.py` и ревизия 20261123_0012 — хранение. Прикладной доступ выдаёт `backend/app/staging_migrate.py`. Проверки находятся в `backend/tests/test_mafia_rules.py` и сценарии test_mafia_party_with_real_postgres.
 - Источник — указанные файлы и `docs/team/reference/api.md`, раздел «Мафия».
+
+
+## 2026-11-23 — D032 — NAV-24
+
+- Операция — добавление
+- Текст пункта — модуль `backend/app/modules/finance/` владеет балансом LC. В `router.py` находятся GET /api/v1/finance/wallet и POST /api/v1/finance/wallet/check-in, в `service.py` — календарь и награды, в `ledger.py` — блокировка счёта и идемпотентные операции. Таблицы lc_accounts и lc_entries добавляет ревизия 20261123_0013. Прикладные права стенда выдаёт `backend/app/staging_migrate.py`. Проверки — `test_lc_checkins_with_real_postgres` и `deploy/staging/tests/check_database_roles.py`.
+- Источник — указанные файлы, `docs/team/architecture/finance.md` и `docs/team/reference/api.md`.

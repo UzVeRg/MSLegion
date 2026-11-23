@@ -6,6 +6,7 @@ import {
 import AppIcon from './AppIcon.vue'
 import CommunityList from './CommunityList.vue'
 import MafiaGame from './MafiaGame.vue'
+import ProfileWallet from './ProfileWallet.vue'
 import NavRow from './NavRow.vue'
 import { messages, sections, type Language, type Message, type Section } from './locale'
 import { getTelegramWebApp, requestTelegramWriteAccess, syncTelegramColors } from './telegram'
@@ -350,21 +351,24 @@ onUnmounted(() => {
           <MafiaGame v-if="page === 'mafia'" :key="session.token" :token="session.token"
             :user-id="profile.id" :language="language" @expired="expireSession" />
 
-          <section v-else-if="page === 'profile'" class="panel">
-            <div class="identity">
-              <span class="avatar" aria-hidden="true">{{ initials || '–' }}</span>
-              <div class="identity-text">
-                <p class="name">{{ profileName || copy.profile }}</p>
-                <p v-if="profile.telegram_id !== null" class="muted">Telegram ID {{ profile.telegram_id }}</p>
+          <template v-else-if="page === 'profile'">
+            <section class="panel">
+              <div class="identity">
+                <span class="avatar" aria-hidden="true">{{ initials || '–' }}</span>
+                <div class="identity-text">
+                  <p class="name">{{ profileName || copy.profile }}</p>
+                  <p v-if="profile.telegram_id !== null" class="muted">Telegram ID {{ profile.telegram_id }}</p>
+                </div>
               </div>
-            </div>
-            <div class="actions">
+            </section>
+            <ProfileWallet :key="session.token" :token="session.token" :language="language" @expired="expireSession" />
+            <div class="profile-actions">
               <p v-if="errorMessage" class="muted" role="alert">{{ copy[errorMessage] }}</p>
               <button type="button" class="secondary" :disabled="signingOut" @click="signOut">
                 {{ copy[signingOut ? 'signingOut' : 'signOut'] }}
               </button>
             </div>
-          </section>
+          </template>
 
           <section v-else-if="page === 'notifications'" class="panel">
             <p class="muted">{{ copy.notificationsHint }}</p>

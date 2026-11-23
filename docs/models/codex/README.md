@@ -114,3 +114,10 @@
 - Операция — добавление
 - Текст пункта — для внутреннего баланса профиля открой PROJ-27 в [project.md](project.md). Утверждённый знак валюты и лист референсов смотри в [дизайн-документации](../../team/design/currency-icon.md).
 - Источник — `docs/team/design/currency-icon.md` и указание пользователя от 23.11.2026.
+
+
+## 2026-11-23 — D013 — INDEX-12
+
+- Операция — замена
+- Текст пункта — для внутренней валюты LC открой [архитектуру финансового модуля](../../team/architecture/finance.md), PROJ-27 в [project.md](project.md), NAV-24 в [navigation.md](navigation.md) и FRONT-09 в [frontend.md](frontend.md). Утверждённый знак и лист референсов смотри в [дизайн-документации](../../team/design/currency-icon.md).
+- Источник — указанные документы и `backend/app/modules/finance/`.

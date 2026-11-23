@@ -11,8 +11,12 @@ from uuid import uuid4
 
 
 def check_inside_api():
+    import hmac
+    import json
     import os
     import subprocess
+    import time
+    from urllib.parse import urlencode
 
     import httpx
     import psycopg
@@ -29,6 +33,8 @@ def check_inside_api():
             "CREATE TABLE public.forbidden_test (id int)",
             "UPDATE alembic_version SET version_num = version_num WHERE false",
             "DELETE FROM users WHERE false",
+            "UPDATE lc_entries SET amount = amount WHERE false",
+            "DELETE FROM lc_entries WHERE false",
         ):
             try:
                 db.execute(statement)
@@ -58,6 +64,24 @@ def check_inside_api():
             headers={"X-Admin-Key": os.environ["ADMIN_API_KEY"]},
             json={"telegram_id": 42},
         ).raise_for_status()
+        telegram_data = {
+            "auth_date": str(int(time.time())),
+            "user": json.dumps({"id": 42, "first_name": "Проверка"}),
+        }
+        signed_fields = "\n".join(f"{key}={value}" for key, value in sorted(telegram_data.items()))
+        signing_key = hmac.digest(b"WebAppData", os.environ["TELEGRAM_BOT_TOKEN"].encode(), "sha256")
+        telegram_data["hash"] = hmac.digest(signing_key, signed_fields.encode(), "sha256").hex()
+        login = client.post("/api/v1/auth/telegram", json={"init_data": urlencode(telegram_data)})
+        login.raise_for_status()
+        headers = {"Authorization": "Bearer " + login.json()["access_token"]}
+        wallet_path = "/api/v1/finance/wallet"
+        wallet = client.get(wallet_path, headers=headers).raise_for_status().json()
+        assert wallet["balance"] == "0"
+        claimed = client.post(
+            wallet_path + "/check-in", headers=headers, json={"date": wallet["date"]},
+        ).raise_for_status().json()
+        assert claimed["balance"] == "10"
+
         client.post(
             "/api/v1/callbacks/server-status",
             headers={"X-Callback-Key": os.environ["SERVER_STATUS_API_KEY"]},
@@ -87,6 +111,7 @@ def run():
             "APP_DATABASE_PASSWORD",
             "ADMIN_API_KEY",
             "SERVER_STATUS_API_KEY",
+            "TELEGRAM_BOT_TOKEN",
         )
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -98,7 +123,7 @@ def run():
         env = (
             os.environ
             | secrets_env
-            | {"TELEGRAM_BOT_TOKEN": "", "CALLBACK_API_KEY": ""}
+            | {"CALLBACK_API_KEY": ""}
         )
         legacy = Path(directory, "legacy.yml")
         # Раньше сервер запускался со штатным pg_hba.conf из тома PostgreSQL.

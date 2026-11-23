@@ -20,6 +20,8 @@ from app.modules.communities.models import (
 from app.modules.communities.router import router as communities_router
 from app.modules.domain_events.models import DomainEvent
 from app.modules.domain_events.router import router as domain_events_router
+from app.modules.finance.models import LCAccount, LCEntry
+from app.modules.finance.router import router as finance_router
 from app.modules.integrations.models import IntegrationEvent
 from app.modules.integrations.router import router as integrations_router
 from app.modules.mafia.models import MafiaRoom
@@ -39,6 +41,7 @@ api_router.include_router(domain_events_router, prefix="/api/v1")
 api_router.include_router(telegram_notifications_router, prefix="/api/v1")
 api_router.include_router(integrations_router, prefix="/api/v1")
 api_router.include_router(mafia_router, prefix="/api/v1")
+api_router.include_router(finance_router, prefix="/api/v1")
 
 
 @api_router.get(
@@ -69,6 +72,8 @@ async def readiness(session: Annotated[AsyncSession, Depends(get_session)]) -> d
             DomainEvent,
             TelegramNotification,
             MafiaRoom,
+            LCAccount,
+            LCEntry,
         ):
             await session.execute(select(model).limit(0))
     except SQLAlchemyError as exc:

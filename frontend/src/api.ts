@@ -64,6 +64,35 @@ export async function setTelegramNotifications(
   return response.json()
 }
 
+export interface Wallet {
+  balance: string
+  date: string
+  streak: number
+  day: number
+  claimed_today: boolean
+  rewards: { day: number; amount: number }[]
+  seconds_until_reset: number
+}
+
+export async function getWallet(token: string, signal: AbortSignal): Promise<Wallet> {
+  const response = await request('/finance/wallet', {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal,
+  })
+  return response.json()
+}
+
+export async function claimDailyReward(token: string, date: string, signal: AbortSignal): Promise<Wallet> {
+  const response = await request('/finance/wallet/check-in', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date }),
+    signal,
+  })
+  return response.json()
+}
+
 export interface Community {
   id: string
   name: string

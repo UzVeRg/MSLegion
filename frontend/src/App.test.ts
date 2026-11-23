@@ -9,6 +9,10 @@ const profile = {
   display_name: 'Анна Иванова',
   telegram_notifications_enabled: false,
 }
+const emptyWallet = {
+  balance: '0', date: '2026-11-23', streak: 0, day: 1, claimed_today: false,
+  seconds_until_reset: 3600, rewards: [{ day: 1, amount: 10 }, { day: 2, amount: 20 }],
+}
 const cleanup: Array<() => void> = []
 
 function loginResponse(duration = 60_000) {
@@ -307,6 +311,7 @@ describe('Telegram Mini App', () => {
     const request = vi.fn()
       .mockResolvedValueOnce(loginResponse(1_000))
       .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json(emptyWallet))
       .mockResolvedValueOnce(loginResponse())
       .mockResolvedValueOnce(Response.json(profile))
     vi.stubGlobal('fetch', request)
@@ -344,7 +349,7 @@ describe('Telegram Mini App', () => {
     clickAction(host)
     await setImmediate()
     expect(request.mock.calls.map(([path]) => path)).toEqual([
-      '/api/v1/auth/telegram', '/api/v1/auth/me', '/api/v1/auth/me',
+      '/api/v1/auth/telegram', '/api/v1/auth/me', '/api/v1/auth/me', '/api/v1/finance/wallet',
     ])
     expect(host.textContent).toContain('Анна Иванова')
   })
@@ -353,12 +358,13 @@ describe('Telegram Mini App', () => {
     const request = vi.fn()
       .mockResolvedValueOnce(loginResponse())
       .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json(emptyWallet))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', request)
     const { host } = openMiniApp()
     await openPage(host, 'Профиль')
     await setImmediate()
-    clickAction(host)
+    await clickLabel(host, 'Выйти')
     await setImmediate()
     expect(request).toHaveBeenLastCalledWith('/api/v1/auth/logout', expect.objectContaining({
       method: 'POST',
@@ -374,6 +380,7 @@ describe('Telegram Mini App', () => {
     const request = vi.fn()
       .mockResolvedValueOnce(loginResponse(1_000))
       .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json(emptyWallet))
       .mockReturnValueOnce(pendingLogout.promise)
       .mockResolvedValueOnce(loginResponse())
       .mockResolvedValueOnce(Response.json(profile))
@@ -381,7 +388,7 @@ describe('Telegram Mini App', () => {
     const { host } = openMiniApp()
     await openPage(host, 'Профиль')
     await setImmediate()
-    clickAction(host)
+    await clickLabel(host, 'Выйти')
     await vi.advanceTimersByTimeAsync(1_000)
     clickAction(host)
     await setImmediate()
@@ -389,4 +396,64 @@ describe('Telegram Mini App', () => {
     await setImmediate()
     expect(host.textContent).toContain('Анна Иванова')
   })
+})
+
+describe('Баланс LC в профиле', () => {
+  it('после смены даты обновляет состояние и ждёт нового нажатия', async () => {
+    const nextDay = { ...emptyWallet, date: '2026-11-24', streak: 1, day: 2, balance: '10' }
+    const request = vi.fn()
+      .mockResolvedValueOnce(loginResponse())
+      .mockResolvedValueOnce(Response.json(profile))
+      .mockResolvedValueOnce(Response.json(emptyWallet))
+      .mockResolvedValueOnce(new Response(null, { status: 409 }))
+      .mockResolvedValueOnce(Response.json(nextDay))
+    vi.stubGlobal('fetch', request)
+
+    const { host } = openMiniApp()
+    await openPage(host, 'Профиль')
+    await setImmediate()
+    await clickLabel(host, 'Отметиться · +10 LC')
+    await setImmediate()
+
+    expect(host.querySelector('.lc-claim')?.textContent).toContain('Отметиться · +20 LC')
+    expect(request.mock.calls.filter(([url]) => url.endsWith('/check-in'))).toHaveLength(1)
+    expect(request).toHaveBeenLastCalledWith('/api/v1/finance/wallet', expect.anything())
+  })
+
+  it.each(['graphite', 'neo-gothic', 'network', 'underground'])(
+    'показывает баланс, серию и выдаёт отметку в теме %s', async (theme) => {
+      localStorage.setItem('mslegion.theme', theme)
+      try {
+        const wallet = emptyWallet
+        const fetch = vi.fn((url: string, options: RequestInit = {}) => {
+          if (url.endsWith('/auth/telegram')) return Promise.resolve(loginResponse())
+          if (url.endsWith('/auth/me')) return Promise.resolve(Response.json(profile))
+          if (url.endsWith('/finance/wallet')) return Promise.resolve(Response.json(wallet))
+          if (url.endsWith('/finance/wallet/check-in')) {
+            expect(options.method).toBe('POST')
+            expect(JSON.parse(String(options.body))).toEqual({ date: wallet.date })
+            return Promise.resolve(Response.json({ ...wallet, balance: '10', streak: 1, claimed_today: true }))
+          }
+          return Promise.resolve(new Response(null, { status: 404 }))
+        })
+        vi.stubGlobal('fetch', fetch)
+        const { host } = openMiniApp()
+        await openPage(host, 'Профиль')
+        await setImmediate()
+        expect(document.documentElement.dataset.theme).toBe(theme)
+        expect(host.querySelector('.lc-amount')?.textContent).toBe('0')
+        expect(host.querySelector('.lc-balance img')).not.toBeNull()
+        expect(host.textContent).toContain('Серия входов: 0')
+        expect(host.textContent).toContain('День 2')
+        await clickLabel(host, 'Отметиться · +10 LC')
+        await setImmediate()
+        expect(host.querySelector('.lc-amount')?.textContent).toBe('10')
+        expect(host.textContent).toContain('Серия входов: 1')
+        expect(host.textContent).toContain('Сегодня отмечено')
+        expect(fetch.mock.calls.filter(([url]) => url.endsWith('/check-in'))).toHaveLength(1)
+      } finally {
+        localStorage.removeItem('mslegion.theme')
+      }
+    },
+  )
 })

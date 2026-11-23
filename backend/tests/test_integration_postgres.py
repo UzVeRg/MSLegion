@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from urllib.parse import urlencode
-from uuid import uuid4
+from uuid import UUID, uuid4
 from zlib import crc32
 
 import pytest
@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 import app.core.security as security_module
+import app.modules.finance.service as finance_service
 import app.modules.integrations.processing as integration_processing
 import app.telegram.bot as telegram_bot
 from app.core.config import get_settings
@@ -34,6 +35,7 @@ from app.core.database import get_session
 from app.main import app
 from app.modules.auth.service import resolve_telegram_user_id
 from app.modules.auth.telegram import InvalidTelegramInitData
+from app.modules.finance.ledger import lock_account, post_entry
 from app.modules.users.exceptions import UserTelegramUnconfirmedError
 
 settings = get_settings()
@@ -97,7 +99,7 @@ def downgrade_to_base(connection: Connection) -> None:
         {
             "users", "integration_events", "user_sessions", "communities",
             "community_memberships", "community_servers", "domain_events", "community_posts",
-            "telegram_notifications", "mafia_rooms",
+            "telegram_notifications", "mafia_rooms", "lc_accounts", "lc_entries",
         }
     )
 
@@ -1125,5 +1127,104 @@ def test_session_limit_with_real_postgres(monkeypatch) -> None:
             final_statuses = [await profile_status(token) for token in simultaneous]
             assert sorted(final_statuses) == [200] * 5 + [401]
             assert (await client.get("/api/v1/auth/me", headers=other)).status_code == 200
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+def test_lc_checkins_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(
+            monkeypatch, isolation_level="REPEATABLE READ",
+        ) as client:
+            path = "/api/v1/finance/wallet"
+            assert (await client.get(path)).status_code == 401
+            unauthorized = await client.post(path + "/check-in", json={"date": "2026-11-01"})
+            assert unauthorized.status_code == 401
+
+            now = datetime(2026, 11, 1, 20, 59, tzinfo=UTC)
+            monkeypatch.setattr(finance_service, "utc_now", lambda: now)
+            headers, user_id = await login_for_community_test(client, 830001)
+            other, _ = await login_for_community_test(client, 830002)
+
+            async def wallet(actor=headers):
+                response = await client.get(path, headers=actor)
+                assert response.status_code == 200
+                assert response.headers["cache-control"] == "no-store"
+                return response.json()
+
+            async def claim(day, actor=headers):
+                return await client.post(path + "/check-in", headers=actor, json={"date": day})
+
+            fresh = await wallet()
+            assert (fresh["balance"], fresh["date"], fresh["streak"], fresh["day"]) == (
+                "0", "2026-11-01", 0, 1,
+            )
+            assert fresh["seconds_until_reset"] == 60
+            repeats = await asyncio.gather(*(claim(fresh["date"]) for _ in range(8)))
+            assert all(response.status_code == 200 for response in repeats)
+            assert {(r.json()["balance"], r.json()["streak"]) for r in repeats} == {("10", 1)}
+            assert (await wallet(other))["balance"] == "0"
+
+            now += timedelta(minutes=2)
+            assert (await claim(fresh["date"])).status_code == 409
+            next_day = await wallet()
+            assert (next_day["date"], next_day["day"], next_day["claimed_today"]) == (
+                "2026-11-02", 2, False,
+            )
+
+            total = 10
+            rewards = [20, 40, 10, 20, 30, 100, 20, 40, 25, 40, 60, 60, 120, 10, 20]
+            rewards += [50, 50, 50, 100, 50, 50, 50, 50, 100, 50, 50, 50, 50, 100]
+            for day, amount in enumerate(rewards, start=2):
+                current = await wallet()
+                assert current["day"] == day
+                assert {row["day"]: row["amount"] for row in current["rewards"]}[day] == amount
+                response = await claim(current["date"])
+                assert response.status_code == 200
+                total += amount
+                result = response.json()
+                assert (result["balance"], result["streak"]) == (str(total), day)
+                now += timedelta(days=1)
+
+            now += timedelta(days=1)
+            restart = await wallet()
+            assert (restart["streak"], restart["day"], restart["balance"]) == (0, 1, str(total))
+
+            async def fail_posting(*args, **kwargs):
+                await post_entry(*args, **kwargs)
+                await args[0].flush()
+                raise RuntimeError("Сбой после записи операции LC")
+
+            with monkeypatch.context() as patch:
+                patch.setattr(finance_service, "post_entry", fail_posting)
+                assert (await claim(restart["date"])).status_code == 500
+            assert await wallet() == restart
+            assert (await claim(restart["date"])).json()["balance"] == str(total + 10)
+
+            async for session in app.dependency_overrides[get_session]():
+                entries = (
+                    await session.execute(
+                        text("SELECT count(*), sum(amount) FROM lc_entries WHERE user_id = :id"),
+                        {"id": user_id},
+                    )
+                ).one()
+                assert entries == (31, total + 10)
+
+            async for session in app.dependency_overrides[get_session]():
+                async with session.begin():
+                    await session.connection(
+                        execution_options={"isolation_level": "READ COMMITTED"},
+                    )
+                    account = await lock_account(session, UUID(user_id))
+                    operation = {"source": "test", "operation_key": "debit", "amount": -10}
+                    assert await post_entry(session, account, **operation)
+                    assert not await post_entry(session, account, **operation)
+                    with pytest.raises(ValueError, match="Ключ операции LC"):
+                        await post_entry(session, account, **(operation | {"amount": -11}))
+                    with pytest.raises(ValueError, match="Баланс LC"):
+                        await post_entry(
+                            session, account, source="test", operation_key="overdraw",
+                            amount=-(total + 1),
+                        )
+            assert (await wallet())["balance"] == str(total)
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)

@@ -469,6 +469,7 @@ h1:focus { outline: none; }
 .secondary:hover { background: var(--panel-raised); }
 
 .actions { display: grid; justify-items: start; gap: .65rem; margin-block-start: 1rem; }
+.profile-actions { display: grid; justify-items: start; gap: .65rem; }
 
 .theme-setting { display: grid; gap: .65rem; font-weight: 700; }
 .theme-setting select {
