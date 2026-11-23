@@ -216,3 +216,9 @@
 - Операция — добавление
 - Текст пункта — лимит суммарного объёма изображений владельца задан в `backend/app/core/config.py` и передаётся в API через `compose.staging.yml`. Порядок блокировки и подсчёта байтов — в `backend/app/modules/communities/content_repository.py`, условия отказа при замене — в `content_service.py` того же модуля. Проверка конкуренции между сообществами одного владельца и старых данных — `test_owner_image_quota_with_real_postgres`.
 - Источник — указанные файлы, `backend/tests/test_integration_postgres.py`, `docs/team/reference/api.md` и `docs/team/development/vps.md`.
+
+## 2026-11-23 — D029 — NAV-12
+
+- Операция — замена
+- Текст пункта — HTTP-вход Telegram, собственный профиль и выход находятся в `backend/app/modules/auth/router.py`. Выдача токена и блокировка владельца находятся в service.py, выбор сохраняемых сессий, проверка предъявленного токена и отзыв — в repository.py того же модуля. Модель — models.py, пакетная очистка — maintenance.py, её периодический запуск — `backend/app/telegram/worker.py`. Ревизия `20261120_0004` создаёт таблицу user_sessions, ревизия `20261123_0011` ограничивает число прежних активных сессий и добавляет индексы очистки. TELEGRAM_BOT_TOKEN читается из настроек ядра. Контракт Bearer и режим без токена бота покрывает `backend/tests/test_auth.py`, проверку лимита на PostgreSQL и миграцию — `backend/tests/test_integration_postgres.py`, работу очистки — `backend/tests/test_session_cleanup.py`.
+- Источник — указанные файлы и `docs/team/development/testing.md`.

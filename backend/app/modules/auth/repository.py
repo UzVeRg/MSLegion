@@ -1,10 +1,31 @@
 from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import ColumnElement, select, update
+from sqlalchemy import ColumnElement, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import UserSession
 from app.modules.users.models import User
+
+
+async def make_room_for_session(
+    session: AsyncSession, user_id: UUID, now: datetime, *, keep: int
+) -> None:
+    retained = (
+        select(UserSession.token_hash)
+        .where(
+            UserSession.user_id == user_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > now,
+        )
+        .order_by(UserSession.expires_at.desc(), UserSession.token_hash.desc())
+        .limit(keep)
+    )
+    await session.execute(
+        delete(UserSession.__table__).where(
+            UserSession.user_id == user_id, UserSession.token_hash.not_in(retained)
+        )
+    )
 
 
 def _active_session_filters(token_hash: bytes, now: datetime) -> tuple[ColumnElement[bool], ...]:

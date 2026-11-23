@@ -2,6 +2,7 @@ import asyncio
 
 from app.core.config import get_settings
 from app.core.database import SessionFactory, close_database
+from app.modules.auth.maintenance import purge_inactive_sessions
 from app.modules.integrations.processing import process_pending_events
 from app.modules.telegram_notifications.service import deliver_notifications
 
@@ -9,6 +10,9 @@ from app.modules.telegram_notifications.service import deliver_notifications
 async def run() -> None:
     try:
         async with SessionFactory() as session:
+            removed = await purge_inactive_sessions(session)
+            if removed:
+                print(f"Удалено завершённых сессий: {removed}.")
             processed = await process_pending_events(session, limit=100)
             token = get_settings().telegram_bot_token
             if token is None:

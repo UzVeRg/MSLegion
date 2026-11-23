@@ -17,6 +17,7 @@ from app.modules.users.models import User
 from app.modules.users.schemas import UserCreate
 
 SESSION_TTL = timedelta(hours=8)
+MAX_ACTIVE_SESSIONS = 5
 SESSION_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{43}")
 
 
@@ -48,12 +49,19 @@ async def resolve_telegram_user_id(
 async def login_with_telegram(
     session: AsyncSession, init_data: str, *, bot_token: str
 ) -> SessionToken:
-    now = datetime.now(UTC)
-    identity = verify_telegram_init_data(init_data, bot_token=bot_token, now=int(now.timestamp()))
+    identity = verify_telegram_init_data(
+        init_data, bot_token=bot_token, now=int(datetime.now(UTC).timestamp())
+    )
     async with session.begin():
+        # После ожидания блокировки следующий запрос должен видеть сессии предыдущего входа.
+        await session.connection(execution_options={"isolation_level": "READ COMMITTED"})
         user = await _resolve_telegram_user(session, identity)
+        # Блокировка FOR NO KEY UPDATE сериализует входы и совместима с проверкой внешних ключей.
+        await session.refresh(user, with_for_update={"key_share": True})
         if user.status != "active":
             raise UserAccessDisabledError
+        now = datetime.now(UTC)
+        await repository.make_room_for_session(session, user.id, now, keep=MAX_ACTIVE_SESSIONS - 1)
         token = secrets.token_urlsafe(32)
         expires_at = now + SESSION_TTL
         session.add(

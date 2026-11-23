@@ -102,6 +102,55 @@ def downgrade_to_base(connection: Connection) -> None:
     )
 
 
+def test_session_limit_migration_with_real_postgres() -> None:
+    def upgrade_existing_sessions(connection: Connection) -> None:
+        config = migration_config(connection)
+        command.upgrade(config, "20261120_0010")
+        owner, other = uuid4(), uuid4()
+        connection.execute(
+            text("INSERT INTO users (id, display_name) VALUES (:id, 'Участник')"),
+            [{"id": owner}, {"id": other}],
+        )
+        # У трёх сессий одинаковый срок на границе отбора. Отозванная имеет самый дальний срок.
+        rows = [
+            (owner, 1, 1, False), (owner, 2, 1, False), (owner, 3, 1, False),
+            (owner, 4, 2, False), (owner, 5, 3, False), (owner, 6, 4, False),
+            (owner, 7, 5, False), (owner, 8, 6, True), (owner, 9, -1, False),
+            (other, 10, 1, False),
+        ]
+        connection.execute(
+            text(
+                "INSERT INTO user_sessions (user_id, token_hash, expires_at, revoked_at) "
+                "VALUES (:owner, :hash, now() + :hours * interval '1 hour', "
+                "CASE WHEN :revoked THEN now() END)"
+            ),
+            [
+                {
+                    "owner": user_id,
+                    "hash": n.to_bytes(32, "big"),
+                    "hours": hours,
+                    "revoked": revoked,
+                }
+                for user_id, n, hours, revoked in rows
+            ],
+        )
+
+        command.upgrade(config, "20261123_0011")
+        active = connection.execute(
+            text(
+                "SELECT token_hash FROM user_sessions "
+                "WHERE revoked_at IS NULL AND expires_at > now()"
+            )
+        ).scalars()
+        assert {int.from_bytes(value, "big") for value in active} == {3, 4, 5, 6, 7, 10}
+
+    async def run() -> None:
+        async with isolated_schema() as engine, engine.begin() as connection:
+            await connection.run_sync(upgrade_existing_sessions)
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
 async def run_http_flow_with_real_postgres(monkeypatch, engine: AsyncEngine) -> None:
     factory = async_sessionmaker(
         bind=engine,
@@ -222,7 +271,7 @@ def signed_telegram_data(telegram_id: int, *, bot_token: str, now: int) -> str:
 
 @asynccontextmanager
 async def migrated_telegram_client(
-    monkeypatch, *, legacy_status_event: bool = False
+    monkeypatch, *, legacy_status_event: bool = False, isolation_level: str | None = None
 ) -> AsyncIterator[AsyncClient]:
     async with isolated_schema() as engine:
         async with engine.begin() as connection:
@@ -239,6 +288,10 @@ async def migrated_telegram_client(
                     {"id": uuid4()},
                 )
             await connection.run_sync(migrate_and_check)
+        if isolation_level is not None:
+            engine = engine.execution_options(isolation_level=isolation_level)
+            async with engine.connect() as connection:
+                assert await connection.get_isolation_level() == isolation_level
         factory = async_sessionmaker(engine, expire_on_commit=False)
 
         async def override_session() -> AsyncIterator[AsyncSession]:
@@ -918,6 +971,17 @@ def test_telegram_sessions_with_real_postgres(monkeypatch) -> None:
                 )
                 assert admin_profile.status_code == 401
 
+                other_revoked = await login(202)
+                other_logout = await client.post(logout_path, headers=bearer(other_revoked))
+                assert other_logout.status_code == 204
+                renewed = await login(101)
+                async with engine.connect() as connection:
+                    stored = await connection.scalars(text("SELECT token_hash FROM user_sessions"))
+                    assert set(stored) == {
+                        sha256(token.encode()).digest()
+                        for token in (renewed, second_token, other_revoked)
+                    }
+
                 async with engine.begin() as connection:
                     await connection.execute(
                         text("UPDATE users SET status = 'disabled' WHERE telegram_id = 202")
@@ -926,5 +990,52 @@ def test_telegram_sessions_with_real_postgres(monkeypatch) -> None:
                 assert blocked_profile.status_code == 401
                 blocked_login = await request_login(202, datetime.now(UTC))
                 assert blocked_login.status_code == 403
+
+    asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def test_session_limit_with_real_postgres(monkeypatch) -> None:
+    async def run() -> None:
+        async with migrated_telegram_client(
+            monkeypatch, isolation_level="REPEATABLE READ"
+        ) as client:
+            other, _ = await login_for_community_test(client, 302)
+            data = signed_telegram_data(
+                301, bot_token=COMMUNITY_TEST_BOT_TOKEN, now=int(datetime.now(UTC).timestamp())
+            )
+
+            async def login() -> str:
+                response = await client.post("/api/v1/auth/telegram", json={"init_data": data})
+                assert response.status_code == 200
+                return response.json()["access_token"]
+
+            async def profile_status(token: str) -> int:
+                response = await client.get(
+                    "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+                )
+                if response.status_code == 401:
+                    assert response.json()["error"]["code"] == "invalid_session"
+                return response.status_code
+
+            initial = [await login() for _ in range(5)]
+            assert [await profile_status(token) for token in initial] == [200] * 5
+            # Коллизия с сохранившимся токеном откатывает и вытеснение, и выдачу.
+            with monkeypatch.context() as patch:
+                patch.setattr(
+                    "app.modules.auth.service.secrets.token_urlsafe", lambda _: initial[-1]
+                )
+                failed = await client.post("/api/v1/auth/telegram", json={"init_data": data})
+            assert failed.status_code == 500
+            assert [await profile_status(token) for token in initial] == [200] * 5
+
+            sixth = await login()
+            assert [await profile_status(token) for token in [*initial, sixth]] == [401] + [200] * 5
+
+            simultaneous = await asyncio.gather(*(login() for _ in range(6)))
+            assert len(set(simultaneous)) == 6
+            assert [await profile_status(token) for token in [*initial, sixth]] == [401] * 6
+            final_statuses = [await profile_status(token) for token in simultaneous]
+            assert sorted(final_statuses) == [200] * 5 + [401]
+            assert (await client.get("/api/v1/auth/me", headers=other)).status_code == 200
 
     asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
